@@ -1,15 +1,21 @@
-import { getAllArtworks } from "@/lib/redis";
-import { HomeClient } from "./components/home-client";
+import { getValidArtworks } from "@/lib/redis";
+import { Ticker } from "@/app/components/ticker";
+import { LandingHero } from "@/app/components/landing-hero";
 
 export default async function Home() {
-  const artworks = await getAllArtworks();
+  const artworks = await getValidArtworks();
+  const tickerImages = artworks.map((a) => a.imageUrl);
 
   return (
-    <main className="flex flex-col items-center px-6 py-12 gap-8">
-      <header className="w-full max-w-5xl">
-        <h1 className="text-lg tracking-tight">Normies Atelier</h1>
-      </header>
-      <HomeClient artworks={artworks} />
-    </main>
+    <div className="flex flex-1 flex-col min-h-[calc(100vh-57px)] bg-white">
+      <div className="h-6 bg-white shrink-0" />
+      <Ticker images={tickerImages} direction="left" />
+
+      <LandingHero />
+
+      <div className="h-6 bg-white shrink-0" />
+      <Ticker images={tickerImages} direction="right" />
+      <div className="h-6 bg-white shrink-0" />
+    </div>
   );
 }

@@ -1,12 +1,13 @@
 import { anthropic, generateImage, parseClaudeJson, sseEvent } from "@/lib/ai";
 import { getAgentInfo, getBurnHistory } from "@/lib/normies";
-import { getArtwork, saveArtwork } from "@/lib/redis";
+import { getArtworkRaw, saveArtwork, deleteArtwork } from "@/lib/redis";
+import { persistImageToBlob } from "@/lib/storage";
 import type { CreationPayload } from "@/lib/types";
 
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  const { tokenId } = await request.json();
+  const { tokenId, regenerate } = await request.json();
 
   if (!tokenId || typeof tokenId !== "string") {
     return new Response(JSON.stringify({ error: "tokenId required" }), {
@@ -14,8 +15,11 @@ export async function POST(request: Request) {
     });
   }
 
-  const existing = await getArtwork(tokenId);
-  if (existing) {
+  const existing = await getArtworkRaw(tokenId);
+  const previousCreatedAt = existing?.createdAt;
+  const previousMintedAt = existing?.mintedAt ?? null;
+
+  if (existing && !existing.imageExpired && !regenerate) {
     return new Response(
       JSON.stringify({
         title: existing.title,
@@ -24,6 +28,10 @@ export async function POST(request: Request) {
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  if (existing?.imageExpired || regenerate) {
+    await deleteArtwork(tokenId);
   }
 
   const [agentInfo, burnHistory] = await Promise.all([
@@ -48,6 +56,10 @@ export async function POST(request: Request) {
 
 Burn history (tokens received via burns):
 ${JSON.stringify(burnHistory, null, 2)}
+
+Do not limit yourself to any particular aesthetic, medium, or style.
+
+The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work.
 
 Respond with JSON only:
 {
@@ -87,7 +99,8 @@ Respond with JSON only:
         );
 
         const imagePromise = generateImage(parsed.imagePrompt);
-        const imageUrl = await imagePromise;
+        const replicateUrl = await imagePromise;
+        const imageUrl = await persistImageToBlob(replicateUrl, tokenId);
 
         controller.enqueue(
           encoder.encode(sseEvent({ type: "image", imageUrl, title: parsed.title }))
@@ -96,11 +109,14 @@ Respond with JSON only:
         await saveArtwork({
           tokenId,
           agentName: agentInfo.name,
+          agentType: agentInfo.type,
+          agentLevel: agentInfo.canvas?.level ?? 1,
           title: parsed.title,
           artistStatement: parsed.artistStatement,
           imageUrl,
-          createdAt: new Date().toISOString(),
-          mintedAt: null,
+          createdAt: previousCreatedAt ?? new Date().toISOString(),
+          mintedAt: previousMintedAt,
+          imageExpired: false,
         });
 
         controller.enqueue(

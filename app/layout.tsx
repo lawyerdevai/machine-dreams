@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
+import { Cormorant_Garamond, Space_Mono } from "next/font/google";
+import { Nav } from "@/app/components/nav";
 import "./globals.css";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const cormorant = Cormorant_Garamond({
+  weight: ["300", "400", "500", "600"],
   subsets: ["latin"],
+  variable: "--font-cormorant",
+});
+
+const spaceMono = Space_Mono({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  variable: "--font-space-mono",
 });
 
 export const metadata: Metadata = {
@@ -18,8 +26,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistMono.variable} h-full`}>
-      <body className="min-h-full flex flex-col font-mono">{children}</body>
+    <html
+      lang="en"
+      className={`${cormorant.variable} ${spaceMono.variable} h-full`}
+    >
+      <body className="min-h-full flex flex-col bg-white text-[#0a0a0a]">
+        <Nav />
+        {children}
+      </body>
     </html>
   );
 }

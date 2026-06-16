@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { AgentExperience } from "@/app/components/agent-experience";
+import { AgentPageClient } from "@/app/components/agent-page-client";
 import { getAgentInfo } from "@/lib/normies";
-import { getArtwork } from "@/lib/redis";
+import { getArtwork, getArtworkRaw, getIntro } from "@/lib/redis";
 
 export default async function AgentPage({
   params,
@@ -10,22 +9,26 @@ export default async function AgentPage({
   params: Promise<{ tokenId: string }>;
 }) {
   const { tokenId } = await params;
-  const [agent, artwork] = await Promise.all([
+  const [agent, artwork, rawArtwork, cachedIntro] = await Promise.all([
     getAgentInfo(tokenId),
     getArtwork(tokenId),
+    getArtworkRaw(tokenId),
+    getIntro(tokenId),
   ]);
 
   if (!agent) notFound();
 
+  const expiredArtwork =
+    rawArtwork?.imageExpired && !artwork ? rawArtwork : null;
+
   return (
-    <main className="flex flex-col items-center px-6 py-12 gap-8 bg-[#0a0a0a] min-h-screen">
-      <Link
-        href="/"
-        className="self-start text-xs text-[#666] hover:text-[#e3e5e4] transition-colors duration-500"
-      >
-        ← Back
-      </Link>
-      <AgentExperience agent={agent} initialArtwork={artwork} />
+    <main className="flex-1 px-6 py-12 bg-white">
+      <AgentPageClient
+        agent={agent}
+        artwork={artwork}
+        expiredArtwork={expiredArtwork}
+        cachedIntro={cachedIntro}
+      />
     </main>
   );
 }

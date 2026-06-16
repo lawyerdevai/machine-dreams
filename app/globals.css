@@ -1,20 +1,90 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #e3e5e4;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --dim: #666666;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-mono: var(--font-geist-mono);
+  --color-dim: var(--dim);
+  --font-serif: var(--font-cormorant);
+  --font-mono: var(--font-space-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-cormorant), Georgia, serif;
+}
+
+.font-serif {
+  font-family: var(--font-cormorant), Georgia, serif;
+}
+
+.font-mono {
+  font-family: var(--font-space-mono), ui-monospace, monospace;
+}
+
+.text-prose {
+  font-size: 18px;
+  line-height: 1.8;
+}
+
+.hero-title {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+}
+
+.nav-brand {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.title-artwork {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  letter-spacing: 0.18em;
+}
+
+.name-agent {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+}
+
+.page-title {
+  font-family: var(--font-cormorant), Georgia, serif;
+  letter-spacing: 0.06em;
+}
+
+@keyframes ticker-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ticker-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ticker-left {
+  animation: ticker-left 38s linear infinite;
+}
+
+.ticker-right {
+  animation: ticker-right 38s linear infinite;
 }
 
 @keyframes fadeIn {
@@ -56,4 +126,78 @@ body {
 
 .cursor-blink {
   animation: blink 1s step-end infinite;
+}
+
+.btn-minimal {
+  font-family: var(--font-space-mono), ui-monospace, monospace;
+  border: 1px solid #0a0a0a;
+  background-color: #ffffff;
+  color: #0a0a0a;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-minimal:hover {
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
+
+.btn-nav {
+  font-family: var(--font-space-mono), ui-monospace, monospace;
+  border: 1px solid #0a0a0a;
+  background-color: transparent;
+  color: #0a0a0a;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-nav:hover {
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
+
+.agent-right-column {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .agent-right-column {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+.agent-right-inner {
+  max-width: 600px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.artwork-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4rem;
+  width: 100%;
+  max-width: 72rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 768px) {
+  .artwork-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAwakenedAgents, getHolderTokenIds } from "@/lib/normies";
+import { getAwakenedAgents, getAgentInfo, getHolderTokenIds } from "@/lib/normies";
 
 export async function POST(request: Request) {
   const { address } = await request.json();
@@ -10,7 +10,16 @@ export async function POST(request: Request) {
 
   try {
     const tokenIds = await getHolderTokenIds(address);
-    const agents = await getAwakenedAgents(tokenIds);
+    const awakened = await getAwakenedAgents(tokenIds);
+    const agents = await Promise.all(
+      awakened.map(async (a) => {
+        const info = await getAgentInfo(a.tokenId);
+        return {
+          tokenId: a.tokenId,
+          name: info?.name ?? `normie #${a.tokenId}`,
+        };
+      })
+    );
     return NextResponse.json({ agents });
   } catch {
     return NextResponse.json(

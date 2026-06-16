@@ -1,11 +1,14 @@
 export interface Artwork {
   tokenId: string;
   agentName: string;
+  agentType?: string;
+  agentLevel?: number;
   title: string;
   artistStatement: string;
   imageUrl: string;
   createdAt: string;
   mintedAt: string | null;
+  imageExpired?: boolean;
 }
 
 export interface AgentInfo {
@@ -19,6 +22,7 @@ export interface AgentInfo {
   communicationStyle: string;
   systemPrompt?: string;
   type: string;
+  canvas?: { level?: number };
   [key: string]: unknown;
 }
 
