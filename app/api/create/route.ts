@@ -1,8 +1,10 @@
-import { anthropic, generateImage, parseClaudeJson, sseEvent } from "@/lib/ai";
-import { getAgentInfo, getBurnHistory } from "@/lib/normies";
-import { getArtworkRaw, saveArtwork, deleteArtwork } from "@/lib/redis";
-import { persistImageToBlob } from "@/lib/storage";
+import { sseEvent } from "@/lib/ai";
+import {
+  completeArtworkCreation,
+  generateCreationPayload,
+} from "@/lib/create-artwork";
 import type { CreationPayload } from "@/lib/types";
+import { getArtworkRaw } from "@/lib/redis";
 
 export const maxDuration = 120;
 
@@ -30,62 +32,28 @@ export async function POST(request: Request) {
     );
   }
 
-  if (existing?.imageExpired || regenerate) {
-    await deleteArtwork(tokenId);
-  }
-
-  const [agentInfo, burnHistory] = await Promise.all([
-    getAgentInfo(tokenId),
-    getBurnHistory(tokenId),
-  ]);
-
-  if (!agentInfo) {
-    return new Response(JSON.stringify({ error: "Agent not found" }), {
-      status: 404,
-    });
-  }
-
-  const mintTraits =
-    (agentInfo.traits as { attributes?: Record<string, unknown> } | undefined)
-      ?.attributes ?? {};
-
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 2048,
-    system: agentInfo.systemPrompt ?? "",
-    messages: [
-      {
-        role: "user",
-        content: `You are creating a single artwork on one canvas.
-
-Burn history (tokens received via burns):
-${JSON.stringify(burnHistory, null, 2)}
-
-Your mint traits (the immutable physical form you were born with on-chain):
-${JSON.stringify(mintTraits, null, 2)}
-
-Do not limit yourself to any particular aesthetic, medium, or style.
-
-The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject. If creating a self-portrait, render it in a distinctly artistic medium — never photorealistic photography. Self-portraits should be the exception, not the default — most agents express themselves through other subjects, objects, or abstractions entirely.
-
-Respond with JSON only:
-{
-  "title": "short evocative title, 3-5 words max, no quotes",
-  "streamingDescription": "3 sentences in present tense, conversational — as if speaking while making the artwork. Describe what you are creating and why.",
-  "imagePrompt": "detailed image generation prompt for Replicate",
-  "artistStatement": "3 sentences in past tense, gallery-card style reflecting on the completed work"
-}`,
-      },
-    ],
-  });
-
-  const text =
-    message.content[0].type === "text" ? message.content[0].text : "";
-
   let parsed: CreationPayload;
+  let agentInfo;
   try {
-    parsed = parseClaudeJson<CreationPayload>(text);
-  } catch {
+    const result = await generateCreationPayload(tokenId, { regenerate });
+    parsed = result.parsed;
+    agentInfo = result.agentInfo;
+  } catch (err) {
+    if (err instanceof Error && err.message === "Artwork already exists") {
+      return new Response(
+        JSON.stringify({
+          title: existing!.title,
+          imageUrl: existing!.imageUrl,
+          artistStatement: existing!.artistStatement,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (err instanceof Error && err.message === "Agent not found") {
+      return new Response(JSON.stringify({ error: "Agent not found" }), {
+        status: 404,
+      });
+    }
     return new Response(
       JSON.stringify({ error: "Failed to parse Claude response" }),
       { status: 500 }
@@ -105,34 +73,30 @@ Respond with JSON only:
           )
         );
 
-        const imagePromise = generateImage(parsed.imagePrompt);
-        const replicateUrl = await imagePromise;
-        const imageUrl = await persistImageToBlob(replicateUrl, tokenId);
-
-        controller.enqueue(
-          encoder.encode(sseEvent({ type: "image", imageUrl, title: parsed.title }))
+        const result = await completeArtworkCreation(
+          tokenId,
+          parsed,
+          agentInfo,
+          { previousCreatedAt, previousMintedAt }
         );
 
-        await saveArtwork({
-          tokenId,
-          agentName: agentInfo.name,
-          agentType: agentInfo.type,
-          agentLevel: agentInfo.canvas?.level ?? 1,
-          title: parsed.title,
-          artistStatement: parsed.artistStatement,
-          imageUrl,
-          createdAt: previousCreatedAt ?? new Date().toISOString(),
-          mintedAt: previousMintedAt,
-          imageExpired: false,
-        });
+        controller.enqueue(
+          encoder.encode(
+            sseEvent({
+              type: "image",
+              imageUrl: result.imageUrl,
+              title: result.title,
+            })
+          )
+        );
 
         controller.enqueue(
           encoder.encode(
             sseEvent({
               type: "complete",
-              title: parsed.title,
-              artistStatement: parsed.artistStatement,
-              imageUrl,
+              title: result.title,
+              artistStatement: result.artistStatement,
+              imageUrl: result.imageUrl,
             })
           )
         );

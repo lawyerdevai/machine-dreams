@@ -91,6 +91,18 @@ export async function saveArtwork(artwork: Artwork): Promise<void> {
 
 export async function deleteArtwork(tokenId: string): Promise<void> {
   await redis.del(artworkKey(tokenId));
+  await redis.srem(ARTWORK_INDEX, tokenId);
+}
+
+export async function deleteEvalBatchArtworks(): Promise<number> {
+  const artworks = await getAllArtworks();
+  const evalArtworks = artworks.filter((a) => a.evalBatch === true);
+
+  await Promise.all(
+    evalArtworks.map((a) => deleteArtwork(a.tokenId))
+  );
+
+  return evalArtworks.length;
 }
 
 export async function getAllArtworks(): Promise<Artwork[]> {
