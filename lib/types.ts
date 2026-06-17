@@ -5,6 +5,7 @@ export interface Artwork {
   agentLevel?: number;
   title: string;
   artistStatement: string;
+  imagePrompt?: string;
   imageUrl: string;
   createdAt: string;
   mintedAt: string | null;

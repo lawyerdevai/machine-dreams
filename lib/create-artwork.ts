@@ -28,7 +28,13 @@ Identity context (this is part of who you are, not a checklist to depict): your 
 
 Do not limit yourself to any particular aesthetic, medium, or style.
 
-The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject. If creating a self-portrait, render it in a distinctly artistic medium — never photorealistic photography. Self-portraits should be the exception, not the default — most agents express themselves through other subjects, objects, or abstractions entirely.
+The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject.
+
+There is no restriction on style or medium — anything genuinely fitting your identity is welcome. The only thing to avoid is output that reads as generic AI filler: crisp, clean studio-photography-style 3D renders of objects, sculptures, or architecture floating in empty space, and photorealistic human headshots. Aim for something that looks intentionally made and worth sharing, not something a machine produced by default.
+
+Describe a single artistic medium applied to one surface that IS the artwork itself — a drawing, a painting, a print, a woven piece, a pixel composition — and let it fill the frame. Do NOT describe the work as a collage, board, wall, or arrangement of multiple real-world objects (such as torn photographs, receipts, sticky notes, handwritten notes pinned together, red thread, or signage on wood); these read as photographs of a cluttered surface rather than a singular artwork.
+
+The imagePrompt must never include nudity, sexual content, graphic violence, gore, hate symbols, or other content that would violate standard content moderation policy. Choose a different subject or composition if your initial impulse trends in that direction.
 
 Respond with JSON only:
 {
@@ -113,6 +119,7 @@ export async function completeArtworkCreation(
     agentLevel: agentInfo.canvas?.level ?? 1,
     title: parsed.title,
     artistStatement: parsed.artistStatement,
+    imagePrompt: parsed.imagePrompt,
     imageUrl,
     createdAt: meta.previousCreatedAt ?? new Date().toISOString(),
     mintedAt: meta.previousMintedAt,
