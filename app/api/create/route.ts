@@ -59,7 +59,7 @@ ${JSON.stringify(burnHistory, null, 2)}
 
 Do not limit yourself to any particular aesthetic, medium, or style.
 
-The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work.
+The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject.
 
 Respond with JSON only:
 {
