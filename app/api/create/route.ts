@@ -45,6 +45,10 @@ export async function POST(request: Request) {
     });
   }
 
+  const mintTraits =
+    (agentInfo.traits as { attributes?: Record<string, unknown> } | undefined)
+      ?.attributes ?? {};
+
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 2048,
@@ -57,9 +61,12 @@ export async function POST(request: Request) {
 Burn history (tokens received via burns):
 ${JSON.stringify(burnHistory, null, 2)}
 
+Your mint traits (the immutable physical form you were born with on-chain):
+${JSON.stringify(mintTraits, null, 2)}
+
 Do not limit yourself to any particular aesthetic, medium, or style.
 
-The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject.
+The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject. If creating a self-portrait, render it in a distinctly artistic medium — never photorealistic photography. Self-portraits should be the exception, not the default — most agents express themselves through other subjects, objects, or abstractions entirely.
 
 Respond with JSON only:
 {

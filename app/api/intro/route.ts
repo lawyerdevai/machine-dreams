@@ -43,7 +43,7 @@ export async function POST(request: Request) {
             {
               role: "user",
               content:
-                "Introduce yourself in 4-6 sentences in your own voice. Who are you? What do you stand for? How do you see the world? Your on-chain history — burns, transformations, pixel changes — is part of who you are, not all of who you are.",
+                "Introduce yourself in 4-6 sentences in your own voice. Speak as a living personality — your perspective, what you notice, what you care about, how you see the world. Your on-chain history is part of your story, not the headline.",
             },
           ],
         });
