@@ -7,6 +7,10 @@ export function Nav() {
   const pathname = usePathname();
   const onGallery = pathname === "/gallery";
 
+  if (pathname === "/") {
+    return null;
+  }
+
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-white">
       <Link

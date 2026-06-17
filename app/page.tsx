@@ -7,7 +7,7 @@ export default async function Home() {
   const tickerImages = artworks.map((a) => a.imageUrl);
 
   return (
-    <div className="flex flex-1 flex-col min-h-[calc(100vh-57px)] bg-white">
+    <div className="flex flex-1 flex-col min-h-screen bg-white">
       <div className="h-6 bg-white shrink-0" />
       <Ticker images={tickerImages} direction="left" />
 
