@@ -16,8 +16,8 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Normies Atelier",
-  description: "AI artwork summoned by Normie agents",
+  title: "Machine Dreams",
+  description: "Art by awakened Normies",
 };
 
 export default function RootLayout({

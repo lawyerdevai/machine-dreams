@@ -11,64 +11,164 @@ interface AgentResult {
   name: string;
 }
 
+type Feedback = { message: string; tone: "error" | "info" } | null;
+
+function isValidWalletAddress(value: string) {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
+}
+
+function isValidTokenId(value: string) {
+  if (!/^\d+$/.test(value.trim())) return false;
+  const n = Number(value.trim());
+  return n >= 0 && n <= 9999;
+}
+
+function FeedbackMessage({ feedback }: { feedback: Feedback }) {
+  if (!feedback) return null;
+  return (
+    <p
+      className={`font-mono text-sm lowercase text-center ${
+        feedback.tone === "error" ? "text-red-600" : "text-[#666]"
+      }`}
+    >
+      {feedback.message}
+    </p>
+  );
+}
+
 export function FindPageClient() {
   const router = useRouter();
   const [address, setAddress] = useState("");
   const [tokenId, setTokenId] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [tokenLoading, setTokenLoading] = useState(false);
+  const [walletFeedback, setWalletFeedback] = useState<Feedback>(null);
+  const [tokenFeedback, setTokenFeedback] = useState<Feedback>(null);
   const [agents, setAgents] = useState<AgentResult[]>([]);
 
   async function handleWalletSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!address.trim()) return;
-    setLoading(true);
-    setError("");
+    const trimmed = address.trim();
+    if (!trimmed) return;
+
+    setWalletLoading(true);
+    setWalletFeedback(null);
     setAgents([]);
+
+    if (!isValidWalletAddress(trimmed)) {
+      setWalletFeedback({
+        tone: "error",
+        message:
+          "that doesn't look like a valid ethereum address. try 0x followed by 40 hex characters.",
+      });
+      setWalletLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/holders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: address.trim() }),
+        body: JSON.stringify({ address: trimmed }),
       });
-      if (!res.ok) throw new Error("Failed to fetch holders");
       const data = await res.json();
-      const awakened: AgentResult[] = data.agents;
-      if (awakened.length === 0) {
-        setError("no awakened agents found for this wallet.");
+
+      if (res.status === 400 && data.error === "invalid_address") {
+        setWalletFeedback({
+          tone: "error",
+          message:
+            "that doesn't look like a valid ethereum address. try 0x followed by 40 hex characters.",
+        });
         return;
       }
+
+      if (!res.ok) {
+        setWalletFeedback({
+          tone: "error",
+          message: "something went wrong looking up that wallet. please try again.",
+        });
+        return;
+      }
+
+      const awakened: AgentResult[] = data.agents ?? [];
+      if (awakened.length === 0) {
+        setWalletFeedback({
+          tone: "info",
+          message:
+            "this wallet is valid, but none of its normies have awakened yet.",
+        });
+        return;
+      }
+
       setAgents(awakened);
     } catch {
-      setError("could not fetch holders.");
+      setWalletFeedback({
+        tone: "error",
+        message: "something went wrong looking up that wallet. please try again.",
+      });
     } finally {
-      setLoading(false);
+      setWalletLoading(false);
     }
   }
 
   async function handleTokenGo(e: React.FormEvent) {
     e.preventDefault();
-    if (!tokenId.trim()) return;
-    setLoading(true);
-    setError("");
+    const trimmed = tokenId.trim();
+    if (!trimmed) return;
+
+    setTokenLoading(true);
+    setTokenFeedback(null);
+
+    if (!isValidTokenId(trimmed)) {
+      setTokenFeedback({
+        tone: "error",
+        message: "enter a valid token id between 0 and 9999.",
+      });
+      setTokenLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/check-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenId: tokenId.trim() }),
+        body: JSON.stringify({ tokenId: trimmed }),
       });
       const data = await res.json();
-      if (!data.awakened) {
-        setError("this normie hasn't awakened yet.");
+
+      if (res.status === 400 && data.error === "invalid_token_id") {
+        setTokenFeedback({
+          tone: "error",
+          message: "enter a valid token id between 0 and 9999.",
+        });
         return;
       }
-      router.push(`/agent/${tokenId.trim()}`);
+
+      if (!res.ok) {
+        setTokenFeedback({
+          tone: "error",
+          message: "something went wrong checking that token. please try again.",
+        });
+        return;
+      }
+
+      if (!data.awakened) {
+        setTokenFeedback({
+          tone: "info",
+          message:
+            "no awakened agent found for that token id. double-check the number, or this normie may not have awakened yet.",
+        });
+        return;
+      }
+
+      router.push(`/agent/${trimmed}`);
     } catch {
-      setError("could not verify token.");
+      setTokenFeedback({
+        tone: "error",
+        message: "something went wrong checking that token. please try again.",
+      });
     } finally {
-      setLoading(false);
+      setTokenLoading(false);
     }
   }
 
@@ -78,41 +178,50 @@ export function FindPageClient() {
         <input
           type="text"
           value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          onChange={(e) => {
+            setAddress(e.target.value);
+            if (walletFeedback) setWalletFeedback(null);
+          }}
           placeholder="wallet address"
           className="border border-[#0a0a0a] px-3 py-2 text-sm lowercase bg-white w-full focus:outline-none font-mono"
         />
         <button
           type="submit"
-          disabled={loading}
+          disabled={walletLoading || tokenLoading}
           className="btn-minimal w-full disabled:opacity-40"
         >
-          Search
+          {walletLoading ? "Searching…" : "Search"}
         </button>
+        <FeedbackMessage feedback={walletFeedback} />
       </form>
 
-      <div className="h-px bg-[#0a0a0a] w-full" />
+      <div className="relative flex items-center w-full">
+        <div className="h-px bg-[#0a0a0a] w-full" />
+        <span className="absolute left-1/2 -translate-x-1/2 bg-white px-3 font-mono text-xs uppercase tracking-widest text-[#666]">
+          or
+        </span>
+      </div>
 
       <form onSubmit={handleTokenGo} className="flex flex-col gap-4 w-full">
         <input
           type="text"
           value={tokenId}
-          onChange={(e) => setTokenId(e.target.value)}
+          onChange={(e) => {
+            setTokenId(e.target.value);
+            if (tokenFeedback) setTokenFeedback(null);
+          }}
           placeholder="token id"
           className="border border-[#0a0a0a] px-3 py-2 text-sm lowercase bg-white w-full focus:outline-none font-mono"
         />
         <button
           type="submit"
-          disabled={loading}
+          disabled={walletLoading || tokenLoading}
           className="btn-minimal w-full disabled:opacity-40"
         >
-          Go
+          {tokenLoading ? "Checking…" : "Go"}
         </button>
+        <FeedbackMessage feedback={tokenFeedback} />
       </form>
-
-      {error && (
-        <p className="font-mono text-sm lowercase text-red-600 text-center">{error}</p>
-      )}
 
       {agents.length > 0 && (
         <div className="grid grid-cols-3 gap-6 w-full pt-4">

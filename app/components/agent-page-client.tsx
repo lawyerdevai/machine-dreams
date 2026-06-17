@@ -8,6 +8,8 @@ import { agentImageUrl } from "@/lib/normies";
 const GRID =
   "grid grid-cols-1 md:grid-cols-2 gap-16 w-full max-w-6xl mx-auto";
 
+const IMAGE_FRAME = "w-full aspect-square";
+
 async function consumeSSE(
   response: Response,
   onEvent: (data: Record<string, string | boolean>) => void
@@ -123,19 +125,27 @@ function AgentLeftColumn({
 
   return (
     <div className="flex flex-col gap-6">
-      <img
-        src={agentImageUrl(tokenId)}
-        alt={agentName}
-        className="w-full max-w-md"
-      />
+      <div className={IMAGE_FRAME}>
+        <img
+          src={agentImageUrl(tokenId)}
+          alt={agentName}
+          className="w-full h-full object-cover"
+        />
+      </div>
       <p className="text-lg lowercase">{lowercaseName(agentName)}</p>
       {introSource.length > 0 && (
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-          {introText}
-          {introStreaming && (
-            <span className="cursor-blink">|</span>
-          )}
-        </p>
+        <div className="flex flex-col gap-3">
+          <span className="text-xs uppercase tracking-widest">
+            Agent Voice
+          </span>
+          <div className="h-px bg-[#0a0a0a] w-full" />
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {introText}
+            {introStreaming && (
+              <span className="cursor-blink">|</span>
+            )}
+          </p>
+        </div>
       )}
     </div>
   );
@@ -156,7 +166,13 @@ function ArtworkRightColumn({
       <h1 className="text-xl uppercase tracking-wide">
         {uppercaseTitle(title)}
       </h1>
-      <img src={imageUrl} alt={title} className="w-full" />
+      <div className={IMAGE_FRAME}>
+        <img
+          src={imageUrl}
+          alt={title}
+          className="w-full h-full object-contain"
+        />
+      </div>
       <div className="flex flex-col gap-3">
         <span className="text-xs uppercase tracking-widest">
           Artist Statement
@@ -444,11 +460,13 @@ function DiscoveryRightColumn({
                 <h1 className="text-xl uppercase tracking-wide fade-in">
                   {uppercaseTitle(title)}
                 </h1>
-                <img
-                  src={imageUrl}
-                  alt={title}
-                  className="w-full fade-in"
-                />
+                <div className={`${IMAGE_FRAME} fade-in`}>
+                  <img
+                    src={imageUrl}
+                    alt={title}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               </>
             )}
         </>

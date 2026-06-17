@@ -38,6 +38,22 @@ export async function getBurnHistory(tokenId: string): Promise<unknown[]> {
   return res.json();
 }
 
+const AWAKENED_AGENT_COUNT_FALLBACK = 1165;
+
+export async function getAwakenedAgentCount(): Promise<number> {
+  try {
+    const res = await fetch(`${BASE}/agents/count`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) throw new Error("Failed to fetch agent count");
+    const data = (await res.json()) as { count?: number };
+    if (typeof data.count === "number" && data.count > 0) return data.count;
+  } catch {
+    // TODO: confirm live count endpoint — fallback when /agents/count is unavailable
+  }
+  return AWAKENED_AGENT_COUNT_FALLBACK;
+}
+
 export async function getAwakenedAgents(
   tokenIds: string[]
 ): Promise<AwakenedAgent[]> {

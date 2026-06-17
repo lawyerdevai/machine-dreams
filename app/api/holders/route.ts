@@ -5,11 +5,16 @@ export async function POST(request: Request) {
   const { address } = await request.json();
 
   if (!address || typeof address !== "string") {
-    return NextResponse.json({ error: "Address required" }, { status: 400 });
+    return NextResponse.json({ error: "address_required" }, { status: 400 });
+  }
+
+  const trimmed = address.trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return NextResponse.json({ error: "invalid_address" }, { status: 400 });
   }
 
   try {
-    const tokenIds = await getHolderTokenIds(address);
+    const tokenIds = await getHolderTokenIds(trimmed);
     const awakened = await getAwakenedAgents(tokenIds);
     const agents = await Promise.all(
       awakened.map(async (a) => {

@@ -17,7 +17,7 @@ export function Nav() {
         href="/"
         className="nav-brand text-lg uppercase text-[#0a0a0a] hover:opacity-70 transition-opacity"
       >
-        Normies Atelier
+        Machine Dreams
       </Link>
       {!onGallery && (
         <Link href="/gallery" className="btn-nav">

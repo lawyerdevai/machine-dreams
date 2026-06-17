@@ -80,11 +80,11 @@ body {
 }
 
 .ticker-left {
-  animation: ticker-left 38s linear infinite;
+  animation: ticker-left 68s linear infinite;
 }
 
 .ticker-right {
-  animation: ticker-right 38s linear infinite;
+  animation: ticker-right 68s linear infinite;
 }
 
 @keyframes fadeIn {

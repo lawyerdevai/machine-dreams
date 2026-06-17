@@ -41,8 +41,11 @@ export function filterArtworks(
   if (!search.trim()) return artworks;
 
   const q = search.trim().toLowerCase();
-  return artworks.filter((a) =>
-    a.agentName.toLowerCase().includes(q)
+  const tokenQuery = q.replace(/^#/, "");
+  return artworks.filter(
+    (a) =>
+      a.agentName.toLowerCase().includes(q) ||
+      a.tokenId.toLowerCase().includes(tokenQuery)
   );
 }
 
