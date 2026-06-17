@@ -1,8 +1,6 @@
 import { sseEvent } from "@/lib/ai";
-import {
-  ARTWORK_CREATION_ERROR_CODE,
-  createArtwork,
-} from "@/lib/create-artwork";
+import { ARTWORK_CREATION_ERROR_CODE } from "@/lib/artwork-creation-messages";
+import { createArtwork } from "@/lib/create-artwork";
 import { getArtworkRaw } from "@/lib/redis";
 
 export const maxDuration = 120;

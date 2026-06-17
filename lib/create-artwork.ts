@@ -1,13 +1,11 @@
+import "server-only";
+
 import { anthropic, generateImage, parseClaudeJson } from "@/lib/ai";
+import { ARTWORK_CREATION_ERROR_CODE } from "@/lib/artwork-creation-messages";
 import { getAgentInfo, getBurnHistory } from "@/lib/normies";
 import { getArtworkRaw, saveArtwork } from "@/lib/redis";
 import { persistImageToBlob } from "@/lib/storage";
 import type { AgentInfo, Artwork, CreationPayload } from "@/lib/types";
-
-export const ARTWORK_CREATION_ERROR_CODE = "creation_failed";
-
-export const ARTWORK_CREATION_USER_MESSAGE =
-  "Your agent couldn't finish its piece right now. Please try again in a moment.";
 
 export class ArtworkCreationError extends Error {
   readonly code = ARTWORK_CREATION_ERROR_CODE;

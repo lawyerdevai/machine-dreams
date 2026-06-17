@@ -9,7 +9,7 @@ import {
   SectionLabel,
 } from "@/app/components/typography";
 import type { AgentInfo, Artwork } from "@/lib/types";
-import { ARTWORK_CREATION_USER_MESSAGE } from "@/lib/create-artwork";
+import { ARTWORK_CREATION_USER_MESSAGE } from "@/lib/artwork-creation-messages";
 import { sentenceCase } from "@/lib/format";
 import { TYPE } from "@/lib/typography";
 import { agentImageUrl } from "@/lib/normies";
