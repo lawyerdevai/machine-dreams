@@ -3,12 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AgentName, TokenId } from "@/app/components/typography";
 import { agentImageUrl } from "@/lib/normies";
-import { formatTokenId, lowercaseName } from "@/lib/format";
+import { agentOrArtworkPath } from "@/lib/routes";
+import { TYPE } from "@/lib/typography";
 
 interface AgentResult {
   tokenId: string;
   name: string;
+  hasArtwork: boolean;
 }
 
 type Feedback = { message: string; tone: "error" | "info" } | null;
@@ -27,8 +30,8 @@ function FeedbackMessage({ feedback }: { feedback: Feedback }) {
   if (!feedback) return null;
   return (
     <p
-      className={`font-mono text-sm lowercase text-center ${
-        feedback.tone === "error" ? "text-red-600" : "text-[#666]"
+      className={`text-center ${
+        feedback.tone === "error" ? TYPE.statusError : TYPE.status
       }`}
     >
       {feedback.message}
@@ -161,7 +164,7 @@ export function FindPageClient() {
         return;
       }
 
-      router.push(`/agent/${trimmed}`);
+      router.push(agentOrArtworkPath(trimmed, data.hasArtwork === true));
     } catch {
       setTokenFeedback({
         tone: "error",
@@ -183,7 +186,7 @@ export function FindPageClient() {
             if (walletFeedback) setWalletFeedback(null);
           }}
           placeholder="wallet address"
-          className="border border-[#0a0a0a] px-3 py-2 text-sm lowercase bg-white w-full focus:outline-none font-mono"
+          className={TYPE.input}
         />
         <button
           type="submit"
@@ -197,7 +200,9 @@ export function FindPageClient() {
 
       <div className="relative flex items-center w-full">
         <div className="h-px bg-[#0a0a0a] w-full" />
-        <span className="absolute left-1/2 -translate-x-1/2 bg-white px-3 font-mono text-xs uppercase tracking-widest text-[#666]">
+        <span
+          className={`${TYPE.sectionLabel} absolute left-1/2 -translate-x-1/2 bg-white px-3 text-[#666]`}
+        >
           or
         </span>
       </div>
@@ -211,7 +216,7 @@ export function FindPageClient() {
             if (tokenFeedback) setTokenFeedback(null);
           }}
           placeholder="token id"
-          className="border border-[#0a0a0a] px-3 py-2 text-sm lowercase bg-white w-full focus:outline-none font-mono"
+          className={TYPE.input}
         />
         <button
           type="submit"
@@ -228,7 +233,7 @@ export function FindPageClient() {
           {agents.map((agent) => (
             <Link
               key={agent.tokenId}
-              href={`/agent/${agent.tokenId}`}
+              href={agentOrArtworkPath(agent.tokenId, agent.hasArtwork)}
               className="flex flex-col gap-2 hover:opacity-80 transition-opacity"
             >
               <img
@@ -236,12 +241,8 @@ export function FindPageClient() {
                 alt={agent.name}
                 className="w-full aspect-square object-cover bg-white"
               />
-              <span className="font-serif text-xs lowercase">
-                {lowercaseName(agent.name)}
-              </span>
-              <span className="font-mono text-xs lowercase text-[#666]">
-                {formatTokenId(agent.tokenId)}
-              </span>
+              <AgentName name={agent.name} />
+              <TokenId tokenId={agent.tokenId} />
             </Link>
           ))}
         </div>

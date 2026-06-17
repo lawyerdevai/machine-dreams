@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAgentBinding, getAgentInfo } from "@/lib/normies";
+import { getArtwork } from "@/lib/redis";
 
 export async function POST(request: Request) {
   const { tokenId } = await request.json();
@@ -13,14 +14,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_token_id" }, { status: 400 });
   }
 
-  const [binding, info] = await Promise.all([
+  const [binding, info, artwork] = await Promise.all([
     getAgentBinding(trimmed),
     getAgentInfo(trimmed),
+    getArtwork(trimmed),
   ]);
 
   if (!binding || !info) {
-    return NextResponse.json({ awakened: false, tokenId: trimmed });
+    return NextResponse.json({ awakened: false, tokenId: trimmed, hasArtwork: false });
   }
 
-  return NextResponse.json({ awakened: true, tokenId: trimmed, name: info.name });
+  return NextResponse.json({
+    awakened: true,
+    tokenId: trimmed,
+    name: info.name,
+    hasArtwork: artwork !== null,
+  });
 }

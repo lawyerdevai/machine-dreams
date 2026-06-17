@@ -16,7 +16,7 @@ export function LandingHero({ awakenedCount }: { awakenedCount: number }) {
           Gallery
         </Link>
         <Link href="/find" className="btn-minimal">
-          Find Your Agent
+          Create
         </Link>
       </div>
     </main>

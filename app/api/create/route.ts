@@ -64,15 +64,6 @@ export async function POST(request: Request) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        controller.enqueue(
-          encoder.encode(
-            sseEvent({
-              type: "description",
-              text: parsed.streamingDescription,
-            })
-          )
-        );
-
         const result = await completeArtworkCreation(
           tokenId,
           parsed,
@@ -83,20 +74,11 @@ export async function POST(request: Request) {
         controller.enqueue(
           encoder.encode(
             sseEvent({
-              type: "image",
-              imageUrl: result.imageUrl,
-              title: result.title,
-            })
-          )
-        );
-
-        controller.enqueue(
-          encoder.encode(
-            sseEvent({
               type: "complete",
               title: result.title,
               artistStatement: result.artistStatement,
               imageUrl: result.imageUrl,
+              createdAt: result.createdAt,
             })
           )
         );

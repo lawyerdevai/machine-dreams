@@ -10,12 +10,13 @@ export function formatTokenId(tokenId: string) {
   return `#${tokenId.toLowerCase()}`;
 }
 
-export function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
+export function formatCreatedAt(iso: string) {
+  const date = new Date(iso);
+  return `Created ${date.toLocaleDateString("en-US", {
+    month: "long",
     day: "numeric",
-  }).toLowerCase();
+    year: "numeric",
+  })}`;
 }
 
 export function sentenceCase(text: string) {

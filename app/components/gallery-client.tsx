@@ -4,15 +4,9 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  type GallerySort,
-  type GalleryView,
-} from "@/lib/gallery";
-import {
-  formatTokenId,
-  lowercaseName,
-  uppercaseTitle,
-} from "@/lib/format";
+import { AgentTokenLine, TileTitle } from "@/app/components/typography";
+import { type GallerySort, type GalleryView } from "@/lib/gallery";
+import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 import { Pagination } from "./filter-bar";
 
@@ -98,7 +92,7 @@ export function GalleryClient({
     return (
       <main className="flex-1 px-6 py-12">
         <h1 className="page-title uppercase text-2xl mb-10">Gallery</h1>
-        <p className="font-mono text-[#666] text-sm lowercase">no artworks yet.</p>
+        <p className={TYPE.status}>no artworks yet.</p>
       </main>
     );
   }
@@ -107,7 +101,7 @@ export function GalleryClient({
     <main className="flex-1 px-6 py-12">
       <div className="flex flex-col gap-4 mb-10 md:flex-row md:items-center md:justify-between">
         <h1 className="page-title uppercase text-2xl shrink-0">Gallery</h1>
-        <div className="flex flex-wrap items-center gap-3 md:gap-6 font-mono">
+        <div className="flex flex-wrap items-center gap-3 md:gap-6">
           <button
             onClick={() => setSort("newest")}
             className={`btn-nav text-xs ${sort === "newest" ? "bg-[#0a0a0a] text-white" : ""}`}
@@ -135,16 +129,14 @@ export function GalleryClient({
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search"
-            className="border border-[#0a0a0a] px-3 py-2 text-sm lowercase bg-white w-full md:w-32 focus:outline-none font-mono"
+            placeholder="search"
+            className={`${TYPE.input} w-full md:w-32`}
           />
         </div>
       </div>
 
       {artworks.length === 0 ? (
-        <p className="font-mono text-[#666] text-sm lowercase">
-          no matching artworks.
-        </p>
+        <p className={TYPE.status}>no matching artworks.</p>
       ) : (
         <div className={`grid ${GALLERY_VIEW_GRID[view]}`}>
           {artworks.map((artwork) => (
@@ -163,13 +155,11 @@ export function GalleryClient({
                 />
               </div>
               <div className="p-3 flex flex-col gap-1">
-                <span className="font-serif text-xs uppercase tracking-wide">
-                  {uppercaseTitle(artwork.title)}
-                </span>
-                <span className="font-mono text-xs text-[#666] lowercase">
-                  {lowercaseName(artwork.agentName)} ·{" "}
-                  {formatTokenId(artwork.tokenId)}
-                </span>
+                <TileTitle title={artwork.title} />
+                <AgentTokenLine
+                  name={artwork.agentName}
+                  tokenId={artwork.tokenId}
+                />
               </div>
             </Link>
           ))}

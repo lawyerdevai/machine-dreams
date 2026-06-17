@@ -1,4 +1,9 @@
-import { lowercaseName, sentenceCase, uppercaseTitle } from "@/lib/format";
+import {
+  AgentName,
+  ArtworkTitle,
+  ProseText,
+  SectionLabel,
+} from "@/app/components/typography";
 import { agentImageUrl } from "@/lib/normies";
 
 export function ArtworkLeftColumn({
@@ -17,10 +22,8 @@ export function ArtworkLeftColumn({
         alt={agentName}
         className="w-full max-w-md bg-white"
       />
-      <p className="name-agent lowercase">{lowercaseName(agentName)}</p>
-      {intro && (
-        <p className="text-prose">{sentenceCase(intro)}</p>
-      )}
+      <AgentName name={agentName} prominent as="p" />
+      {intro && <ProseText text={intro} />}
     </div>
   );
 }
@@ -36,16 +39,12 @@ export function ArtworkRightColumn({
 }) {
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="title-artwork uppercase">
-        {uppercaseTitle(title)}
-      </h1>
+      <ArtworkTitle title={title} className="title-artwork" />
       <img src={imageUrl} alt={title} className="w-full" />
       <div className="flex flex-col gap-4">
-        <span className="font-mono text-xs uppercase tracking-widest">
-          Artist Statement
-        </span>
+        <SectionLabel>Artist Statement</SectionLabel>
         <div className="h-px bg-[#0a0a0a] w-full" />
-        <p className="text-prose">{sentenceCase(artistStatement)}</p>
+        <ProseText text={artistStatement} />
       </div>
     </div>
   );

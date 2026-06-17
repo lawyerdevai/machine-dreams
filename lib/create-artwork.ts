@@ -15,7 +15,7 @@ export type CreateArtworkResult = {
   title: string;
   artistStatement: string;
   imageUrl: string;
-  streamingDescription: string;
+  createdAt: string;
 };
 
 function buildCreateUserMessage(
@@ -39,7 +39,6 @@ The imagePrompt must never include nudity, sexual content, graphic violence, gor
 Respond with JSON only:
 {
   "title": "short evocative title, 3-5 words max, no quotes",
-  "streamingDescription": "3 sentences in present tense, conversational — as if speaking while making the artwork. Describe what you are creating and why.",
   "imagePrompt": "detailed image generation prompt for Replicate",
   "artistStatement": "3 sentences in past tense, gallery-card style reflecting on the completed work"
 }`;
@@ -135,7 +134,7 @@ export async function completeArtworkCreation(
     title: parsed.title,
     artistStatement: parsed.artistStatement,
     imageUrl,
-    streamingDescription: parsed.streamingDescription,
+    createdAt: artwork.createdAt,
   };
 }
 

@@ -35,7 +35,6 @@ export interface AwakenedAgent {
 
 export interface CreationPayload {
   title: string;
-  streamingDescription: string;
   imagePrompt: string;
   artistStatement: string;
 }

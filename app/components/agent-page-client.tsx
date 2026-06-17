@@ -1,8 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  AgentName,
+  ArtworkTitle,
+  CreatedDate,
+  ProseSm,
+  SectionLabel,
+} from "@/app/components/typography";
 import type { AgentInfo, Artwork } from "@/lib/types";
-import { lowercaseName, sentenceCase, uppercaseTitle } from "@/lib/format";
+import { sentenceCase } from "@/lib/format";
+import { TYPE } from "@/lib/typography";
 import { agentImageUrl } from "@/lib/normies";
 
 const GRID =
@@ -51,8 +59,12 @@ function useTypewriter(source: string, active: boolean) {
   };
 }
 
-/** Loads intro from Redis cache or Claude API; always typewrites on screen. */
-function useIntroStream(tokenId: string, cachedIntro: string | null) {
+/** Loads intro from Redis cache or /api/intro. Types only when animate is true. */
+function useIntroStream(
+  tokenId: string,
+  cachedIntro: string | null,
+  animate: boolean
+) {
   const [introSource, setIntroSource] = useState("");
   const [introLoaded, setIntroLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -95,12 +107,36 @@ function useIntroStream(tokenId: string, cachedIntro: string | null) {
 
   const { displayed: introDisplayed, caughtUp } = useTypewriter(
     introSource,
-    true
+    animate
   );
-  const introComplete = introLoaded && caughtUp;
-  const introStreaming = introSource.length > 0 && !introComplete;
+  const introComplete = animate ? introLoaded && caughtUp : introLoaded;
+  const introStreaming =
+    animate && introSource.length > 0 && !introComplete;
 
-  return { introSource, introDisplayed, introComplete, introStreaming, error };
+  return {
+    introSource,
+    introDisplayed: animate ? introDisplayed : introSource,
+    introComplete,
+    introStreaming,
+    error,
+  };
+}
+
+function DreamingStatus() {
+  const [dots, setDots] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDots((current) => (current + 1) % 4);
+    }, 450);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <p className={TYPE.status}>
+      dreaming{".".repeat(dots)}
+    </p>
+  );
 }
 
 /** Left column — pixel-identical to /artwork/[tokenId] */
@@ -111,6 +147,7 @@ function AgentLeftColumn({
   introComplete,
   introStreaming,
   introSource,
+  animateIntro,
 }: {
   tokenId: string;
   agentName: string;
@@ -118,10 +155,12 @@ function AgentLeftColumn({
   introComplete: boolean;
   introStreaming: boolean;
   introSource: string;
+  animateIntro: boolean;
 }) {
-  const introText = introComplete
-    ? sentenceCase(introSource)
-    : introDisplayed;
+  const introText =
+    !animateIntro || introComplete
+      ? sentenceCase(introSource)
+      : introDisplayed;
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,20 +171,12 @@ function AgentLeftColumn({
           className="w-full h-full object-cover"
         />
       </div>
-      <p className="text-lg lowercase">{lowercaseName(agentName)}</p>
+      <AgentName name={agentName} prominent as="p" />
       {introSource.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <span className="text-xs uppercase tracking-widest">
-            Agent Voice
-          </span>
-          <div className="h-px bg-[#0a0a0a] w-full" />
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-            {introText}
-            {introStreaming && (
-              <span className="cursor-blink">|</span>
-            )}
-          </p>
-        </div>
+        <ProseSm className="whitespace-pre-wrap">
+          {introText}
+          {introStreaming && <span className="cursor-blink">|</span>}
+        </ProseSm>
       )}
     </div>
   );
@@ -156,16 +187,16 @@ function ArtworkRightColumn({
   title,
   imageUrl,
   artistStatement,
+  createdAt,
 }: {
   title: string;
   imageUrl: string;
   artistStatement: string;
+  createdAt: string;
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl uppercase tracking-wide">
-        {uppercaseTitle(title)}
-      </h1>
+      <ArtworkTitle title={title} />
       <div className={IMAGE_FRAME}>
         <img
           src={imageUrl}
@@ -174,25 +205,16 @@ function ArtworkRightColumn({
         />
       </div>
       <div className="flex flex-col gap-3">
-        <span className="text-xs uppercase tracking-widest">
-          Artist Statement
-        </span>
+        <SectionLabel>Artist Statement</SectionLabel>
         <div className="h-px bg-[#0a0a0a] w-full" />
-        <p className="text-sm leading-relaxed">
-          {sentenceCase(artistStatement)}
-        </p>
+        <ProseSm>{sentenceCase(artistStatement)}</ProseSm>
+        <CreatedDate iso={createdAt} />
       </div>
     </div>
   );
 }
 
-type Phase =
-  | "intro"
-  | "question"
-  | "ready"
-  | "creating"
-  | "reveal"
-  | "complete";
+type Phase = "intro" | "question" | "ready" | "creating" | "complete";
 
 interface AgentPageClientProps {
   agent: AgentInfo;
@@ -207,7 +229,8 @@ export function AgentPageClient({
   expiredArtwork,
   cachedIntro,
 }: AgentPageClientProps) {
-  const intro = useIntroStream(agent.tokenId, cachedIntro);
+  const animateIntro = !artwork && !expiredArtwork;
+  const intro = useIntroStream(agent.tokenId, cachedIntro, animateIntro);
   const agentName = artwork?.agentName ?? agent.name;
 
   return (
@@ -219,6 +242,7 @@ export function AgentPageClient({
         introComplete={intro.introComplete}
         introStreaming={intro.introStreaming}
         introSource={intro.introSource}
+        animateIntro={animateIntro}
       />
 
       {artwork ? (
@@ -226,6 +250,7 @@ export function AgentPageClient({
           title={artwork.title}
           imageUrl={artwork.imageUrl}
           artistStatement={artwork.artistStatement}
+          createdAt={artwork.createdAt}
         />
       ) : expiredArtwork ? (
         <ExpiredRightColumn
@@ -282,20 +307,19 @@ function ExpiredRightColumn({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl uppercase tracking-wide">
-        {uppercaseTitle(expiredArtwork.title)}
-      </h1>
-      <div className="w-full aspect-square flex items-center justify-center text-[#666] text-sm lowercase">
-        image expired
+      <ArtworkTitle title={expiredArtwork.title} />
+      <div className="w-full aspect-square flex items-center justify-center">
+        {regenerating ? (
+          <DreamingStatus />
+        ) : (
+          <p className={TYPE.status}>image expired</p>
+        )}
       </div>
       <div className="flex flex-col gap-3">
-        <span className="text-xs uppercase tracking-widest">
-          Artist Statement
-        </span>
+        <SectionLabel>Artist Statement</SectionLabel>
         <div className="h-px bg-[#0a0a0a] w-full" />
-        <p className="text-sm leading-relaxed">
-          {sentenceCase(expiredArtwork.artistStatement)}
-        </p>
+        <ProseSm>{sentenceCase(expiredArtwork.artistStatement)}</ProseSm>
+        <CreatedDate iso={expiredArtwork.createdAt} />
       </div>
       <button
         onClick={handleRegenerate}
@@ -305,7 +329,7 @@ function ExpiredRightColumn({
         {regenerating ? "Regenerating..." : "Regenerate Artwork"}
       </button>
       {(error || introError) && (
-        <p className="text-sm lowercase text-red-600">{error || introError}</p>
+        <p className={TYPE.statusError}>{error || introError}</p>
       )}
     </div>
   );
@@ -324,19 +348,12 @@ function DiscoveryRightColumn({
   const [error, setError] = useState("");
   const questionShown = useRef(false);
 
-  const [descriptionSource, setDescriptionSource] = useState("");
-  const typingActive = phase === "creating" || phase === "reveal";
-  const { displayed: descriptionDisplayed, caughtUp: descriptionTyped } =
-    useTypewriter(descriptionSource, typingActive);
-
   const [title, setTitle] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [artistStatement, setArtistStatement] = useState("");
-  const [descriptionFading, setDescriptionFading] = useState(false);
-  const [descriptionHidden, setDescriptionHidden] = useState(false);
+  const [createdAt, setCreatedAt] = useState("");
   const [showQuestion, setShowQuestion] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [showArtwork, setShowArtwork] = useState(false);
 
   useEffect(() => {
     if (!introComplete || questionShown.current) return;
@@ -357,13 +374,10 @@ function DiscoveryRightColumn({
     setPhase("creating");
     setShowCreate(false);
     setShowQuestion(false);
-    setDescriptionHidden(false);
-    setDescriptionFading(false);
-    setShowArtwork(false);
-    setDescriptionSource("");
     setImageUrl(null);
     setTitle("");
     setArtistStatement("");
+    setCreatedAt("");
 
     try {
       const res = await fetch("/api/create", {
@@ -381,24 +395,12 @@ function DiscoveryRightColumn({
       }
 
       await consumeSSE(res, (event) => {
-        if (event.type === "description") {
-          setDescriptionSource(event.text as string);
-        } else if (event.type === "image") {
-          setTitle(event.title as string);
-          setImageUrl(event.imageUrl as string);
-          setPhase("reveal");
-          setTimeout(() => {
-            setDescriptionFading(true);
-            setTimeout(() => {
-              setDescriptionHidden(true);
-              setShowArtwork(true);
-              setPhase("complete");
-            }, 800);
-          }, 1000);
-        } else if (event.type === "complete") {
+        if (event.type === "complete") {
           setTitle(event.title as string);
           setArtistStatement(event.artistStatement as string);
-          setImageUrl((prev) => prev ?? (event.imageUrl as string));
+          setImageUrl(event.imageUrl as string);
+          setCreatedAt(event.createdAt as string);
+          setPhase("complete");
         } else if (event.type === "error") {
           throw new Error(event.message as string);
         }
@@ -411,24 +413,25 @@ function DiscoveryRightColumn({
     }
   }, [agent.tokenId]);
 
-  const isState2 = showArtwork && title && imageUrl && artistStatement;
+  const isComplete =
+    phase === "complete" && title && imageUrl && artistStatement && createdAt;
 
   return (
     <div className="flex flex-col gap-6 min-h-[40vh]">
-      {isState2 ? (
+      {isComplete ? (
         <ArtworkRightColumn
           title={title}
           imageUrl={imageUrl}
           artistStatement={artistStatement}
+          createdAt={createdAt}
         />
       ) : (
         <>
-          {showQuestion &&
-            (phase === "question" || phase === "ready") && (
-              <p className="text-sm text-[#666] fade-in lowercase">
-                if you had one canvas — what would you create?
-              </p>
-            )}
+          {showQuestion && (phase === "question" || phase === "ready") && (
+            <p className={`${TYPE.proseSm} text-[#666] fade-in`}>
+              If you had one canvas — what would you create?
+            </p>
+          )}
 
           {showCreate && phase === "ready" && (
             <button
@@ -439,41 +442,12 @@ function DiscoveryRightColumn({
             </button>
           )}
 
-          {descriptionSource && !descriptionHidden && (
-            <p
-              className={`text-sm leading-relaxed whitespace-pre-wrap ${
-                descriptionFading ? "fade-out" : ""
-              }`}
-            >
-              {descriptionDisplayed}
-              {phase === "creating" && !descriptionTyped && (
-                <span className="cursor-blink">|</span>
-              )}
-            </p>
-          )}
-
-          {(phase === "reveal" || phase === "complete") &&
-            title &&
-            imageUrl &&
-            !showArtwork && (
-              <>
-                <h1 className="text-xl uppercase tracking-wide fade-in">
-                  {uppercaseTitle(title)}
-                </h1>
-                <div className={`${IMAGE_FRAME} fade-in`}>
-                  <img
-                    src={imageUrl}
-                    alt={title}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </>
-            )}
+          {phase === "creating" && <DreamingStatus />}
         </>
       )}
 
       {(error || introError) && (
-        <p className="text-sm lowercase text-red-600">{error || introError}</p>
+        <p className={TYPE.statusError}>{error || introError}</p>
       )}
     </div>
   );

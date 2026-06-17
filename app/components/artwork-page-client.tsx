@@ -1,4 +1,10 @@
-import { lowercaseName, sentenceCase, uppercaseTitle } from "@/lib/format";
+import {
+  AgentName,
+  ArtworkTitle,
+  CreatedDate,
+  ProseText,
+  SectionLabel,
+} from "@/app/components/typography";
 import { agentImageUrl } from "@/lib/normies";
 import type { Artwork } from "@/lib/types";
 
@@ -21,22 +27,12 @@ export function ArtworkPageClient({
             className="w-full h-full object-cover"
           />
         </div>
-        <p className="text-lg lowercase">{lowercaseName(artwork.agentName)}</p>
-        {intro && (
-          <div className="flex flex-col gap-3">
-            <span className="text-xs uppercase tracking-widest">
-              Agent Voice
-            </span>
-            <div className="h-px bg-[#0a0a0a] w-full" />
-            <p className="text-sm leading-relaxed">{sentenceCase(intro)}</p>
-          </div>
-        )}
+        <AgentName name={artwork.agentName} prominent as="p" />
+        {intro && <ProseText text={intro} />}
       </div>
 
       <div className="flex flex-col gap-6">
-        <h1 className="text-xl uppercase tracking-wide">
-          {uppercaseTitle(artwork.title)}
-        </h1>
+        <ArtworkTitle title={artwork.title} />
         <div className={IMAGE_FRAME}>
           <img
             src={artwork.imageUrl}
@@ -45,13 +41,10 @@ export function ArtworkPageClient({
           />
         </div>
         <div className="flex flex-col gap-3">
-          <span className="text-xs uppercase tracking-widest">
-            Artist Statement
-          </span>
+          <SectionLabel>Artist Statement</SectionLabel>
           <div className="h-px bg-[#0a0a0a] w-full" />
-          <p className="text-sm leading-relaxed">
-            {sentenceCase(artwork.artistStatement)}
-          </p>
+          <ProseText text={artwork.artistStatement} />
+          <CreatedDate iso={artwork.createdAt} />
         </div>
       </div>
     </div>
