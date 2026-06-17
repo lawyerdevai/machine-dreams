@@ -9,6 +9,7 @@ import {
   SectionLabel,
 } from "@/app/components/typography";
 import type { AgentInfo, Artwork } from "@/lib/types";
+import { ARTWORK_CREATION_USER_MESSAGE } from "@/lib/create-artwork";
 import { sentenceCase } from "@/lib/format";
 import { TYPE } from "@/lib/typography";
 import { agentImageUrl } from "@/lib/normies";
@@ -279,10 +280,12 @@ function ExpiredRightColumn({
   introError: string;
 }) {
   const [regenerating, setRegenerating] = useState(false);
+  const [regenerateFailed, setRegenerateFailed] = useState(false);
   const [error, setError] = useState("");
 
   async function handleRegenerate() {
     setRegenerating(true);
+    setRegenerateFailed(false);
     setError("");
     try {
       const res = await fetch("/api/create", {
@@ -292,15 +295,19 @@ function ExpiredRightColumn({
       });
       const contentType = res.headers.get("content-type") ?? "";
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Regeneration failed");
+        setRegenerateFailed(true);
+        return;
       }
       if (contentType.includes("text/event-stream")) {
-        await consumeSSE(res, () => {});
+        await consumeSSE(res, (event) => {
+          if (event.type === "error") {
+            throw new Error("creation_failed");
+          }
+        });
       }
       window.location.reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Regeneration failed");
+    } catch {
+      setRegenerateFailed(true);
       setRegenerating(false);
     }
   }
@@ -328,6 +335,11 @@ function ExpiredRightColumn({
       >
         {regenerating ? "Regenerating..." : "Regenerate Artwork"}
       </button>
+      {regenerateFailed && (
+        <p className={`${TYPE.proseSm} text-[#666]`}>
+          {ARTWORK_CREATION_USER_MESSAGE}
+        </p>
+      )}
       {(error || introError) && (
         <p className={TYPE.statusError}>{error || introError}</p>
       )}
@@ -345,7 +357,7 @@ function DiscoveryRightColumn({
   introError: string;
 }) {
   const [phase, setPhase] = useState<Phase>("intro");
-  const [error, setError] = useState("");
+  const [creationFailed, setCreationFailed] = useState(false);
   const questionShown = useRef(false);
 
   const [title, setTitle] = useState("");
@@ -370,7 +382,7 @@ function DiscoveryRightColumn({
   }, [introComplete]);
 
   const handleCreate = useCallback(async () => {
-    setError("");
+    setCreationFailed(false);
     setPhase("creating");
     setShowCreate(false);
     setShowQuestion(false);
@@ -387,11 +399,18 @@ function DiscoveryRightColumn({
       });
       const contentType = res.headers.get("content-type") ?? "";
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Creation failed");
+        setCreationFailed(true);
+        setPhase("ready");
+        setShowCreate(true);
+        setShowQuestion(true);
+        return;
       }
       if (contentType.includes("application/json")) {
-        throw new Error("Artwork already exists");
+        setCreationFailed(true);
+        setPhase("ready");
+        setShowCreate(true);
+        setShowQuestion(true);
+        return;
       }
 
       await consumeSSE(res, (event) => {
@@ -402,11 +421,11 @@ function DiscoveryRightColumn({
           setCreatedAt(event.createdAt as string);
           setPhase("complete");
         } else if (event.type === "error") {
-          throw new Error(event.message as string);
+          throw new Error("creation_failed");
         }
       });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Creation failed");
+    } catch {
+      setCreationFailed(true);
       setPhase("ready");
       setShowCreate(true);
       setShowQuestion(true);
@@ -443,12 +462,16 @@ function DiscoveryRightColumn({
           )}
 
           {phase === "creating" && <DreamingStatus />}
+
+          {creationFailed && (
+            <p className={`${TYPE.proseSm} text-[#666]`}>
+              {ARTWORK_CREATION_USER_MESSAGE}
+            </p>
+          )}
         </>
       )}
 
-      {(error || introError) && (
-        <p className={TYPE.statusError}>{error || introError}</p>
-      )}
+      {introError && <p className={TYPE.statusError}>{introError}</p>}
     </div>
   );
 }

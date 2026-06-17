@@ -1,8 +1,28 @@
 import { anthropic, generateImage, parseClaudeJson } from "@/lib/ai";
 import { getAgentInfo, getBurnHistory } from "@/lib/normies";
-import { deleteArtwork, getArtworkRaw, saveArtwork } from "@/lib/redis";
+import { getArtworkRaw, saveArtwork } from "@/lib/redis";
 import { persistImageToBlob } from "@/lib/storage";
 import type { AgentInfo, Artwork, CreationPayload } from "@/lib/types";
+
+export const ARTWORK_CREATION_ERROR_CODE = "creation_failed";
+
+export const ARTWORK_CREATION_USER_MESSAGE =
+  "Your agent couldn't finish its piece right now. Please try again in a moment.";
+
+export class ArtworkCreationError extends Error {
+  readonly code = ARTWORK_CREATION_ERROR_CODE;
+
+  constructor() {
+    super(ARTWORK_CREATION_ERROR_CODE);
+    this.name = "ArtworkCreationError";
+  }
+}
+
+export function isArtworkCreationError(
+  err: unknown
+): err is ArtworkCreationError {
+  return err instanceof ArtworkCreationError;
+}
 
 export type CreateArtworkOptions = {
   regenerate?: boolean;
@@ -44,6 +64,23 @@ Respond with JSON only:
 }`;
 }
 
+function parseCreationPayload(text: string): CreationPayload {
+  try {
+    const parsed = parseClaudeJson<CreationPayload>(text);
+    if (
+      !parsed.title?.trim() ||
+      !parsed.imagePrompt?.trim() ||
+      !parsed.artistStatement?.trim()
+    ) {
+      throw new ArtworkCreationError();
+    }
+    return parsed;
+  } catch (err) {
+    if (isArtworkCreationError(err)) throw err;
+    throw new ArtworkCreationError();
+  }
+}
+
 export async function generateCreationPayload(
   tokenId: string,
   options: Pick<CreateArtworkOptions, "regenerate"> = {}
@@ -54,10 +91,6 @@ export async function generateCreationPayload(
 
   if (existing && !existing.imageExpired && !options.regenerate) {
     throw new Error("Artwork already exists");
-  }
-
-  if (existing?.imageExpired || options.regenerate) {
-    await deleteArtwork(tokenId);
   }
 
   const [agentInfo, burnHistory] = await Promise.all([
@@ -88,7 +121,7 @@ export async function generateCreationPayload(
   const text =
     message.content[0].type === "text" ? message.content[0].text : "";
 
-  const parsed = parseClaudeJson<CreationPayload>(text);
+  const parsed = parseCreationPayload(text);
 
   return {
     parsed,
@@ -142,14 +175,24 @@ export async function createArtwork(
   tokenId: string,
   options: CreateArtworkOptions = {}
 ): Promise<CreateArtworkResult> {
-  const { parsed, agentInfo, previousCreatedAt, previousMintedAt } =
-    await generateCreationPayload(tokenId, options);
+  try {
+    const { parsed, agentInfo, previousCreatedAt, previousMintedAt } =
+      await generateCreationPayload(tokenId, options);
 
-  return completeArtworkCreation(
-    tokenId,
-    parsed,
-    agentInfo,
-    { previousCreatedAt, previousMintedAt },
-    options
-  );
+    return await completeArtworkCreation(
+      tokenId,
+      parsed,
+      agentInfo,
+      { previousCreatedAt, previousMintedAt },
+      options
+    );
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      (err.message === "Artwork already exists" || err.message === "Agent not found")
+    ) {
+      throw err;
+    }
+    throw new ArtworkCreationError();
+  }
 }

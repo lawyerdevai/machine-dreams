@@ -1,9 +1,8 @@
 import { sseEvent } from "@/lib/ai";
 import {
-  completeArtworkCreation,
-  generateCreationPayload,
+  ARTWORK_CREATION_ERROR_CODE,
+  createArtwork,
 } from "@/lib/create-artwork";
-import type { CreationPayload } from "@/lib/types";
 import { getArtworkRaw } from "@/lib/redis";
 
 export const maxDuration = 120;
@@ -18,8 +17,6 @@ export async function POST(request: Request) {
   }
 
   const existing = await getArtworkRaw(tokenId);
-  const previousCreatedAt = existing?.createdAt;
-  const previousMintedAt = existing?.mintedAt ?? null;
 
   if (existing && !existing.imageExpired && !regenerate) {
     return new Response(
@@ -32,44 +29,11 @@ export async function POST(request: Request) {
     );
   }
 
-  let parsed: CreationPayload;
-  let agentInfo;
-  try {
-    const result = await generateCreationPayload(tokenId, { regenerate });
-    parsed = result.parsed;
-    agentInfo = result.agentInfo;
-  } catch (err) {
-    if (err instanceof Error && err.message === "Artwork already exists") {
-      return new Response(
-        JSON.stringify({
-          title: existing!.title,
-          imageUrl: existing!.imageUrl,
-          artistStatement: existing!.artistStatement,
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    if (err instanceof Error && err.message === "Agent not found") {
-      return new Response(JSON.stringify({ error: "Agent not found" }), {
-        status: 404,
-      });
-    }
-    return new Response(
-      JSON.stringify({ error: "Failed to parse Claude response" }),
-      { status: 500 }
-    );
-  }
-
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const result = await completeArtworkCreation(
-          tokenId,
-          parsed,
-          agentInfo,
-          { previousCreatedAt, previousMintedAt }
-        );
+        const result = await createArtwork(tokenId, { regenerate });
 
         controller.enqueue(
           encoder.encode(
@@ -83,11 +47,38 @@ export async function POST(request: Request) {
           )
         );
       } catch (err) {
+        if (err instanceof Error && err.message === "Artwork already exists") {
+          controller.enqueue(
+            encoder.encode(
+              sseEvent({
+                type: "complete",
+                title: existing!.title,
+                artistStatement: existing!.artistStatement,
+                imageUrl: existing!.imageUrl,
+                createdAt: existing!.createdAt,
+              })
+            )
+          );
+          return;
+        }
+
+        if (err instanceof Error && err.message === "Agent not found") {
+          controller.enqueue(
+            encoder.encode(
+              sseEvent({
+                type: "error",
+                code: "agent_not_found",
+              })
+            )
+          );
+          return;
+        }
+
         controller.enqueue(
           encoder.encode(
             sseEvent({
               type: "error",
-              message: err instanceof Error ? err.message : "Creation failed",
+              code: ARTWORK_CREATION_ERROR_CODE,
             })
           )
         );
