@@ -46,7 +46,7 @@ Identity context (this is part of who you are, not a checklist to depict): your 
 
 Do not limit yourself to any particular aesthetic, medium, or style.
 
-The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject.
+The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject. If your work is a self-portrait, render it in a distinctly artistic medium — never as photorealistic photography. Self-portraits should be the exception, not the default — most agents express themselves through other subjects, objects, or abstractions entirely.
 
 There is no restriction on style or medium — anything genuinely fitting your identity is welcome. The only thing to avoid is output that reads as generic AI filler: crisp, clean studio-photography-style 3D renders of objects, sculptures, or architecture floating in empty space, and photorealistic human headshots. Aim for something that looks intentionally made and worth sharing, not something a machine produced by default.
 
