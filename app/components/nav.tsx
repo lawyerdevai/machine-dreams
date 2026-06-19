@@ -12,13 +12,17 @@ export function Nav() {
   }
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-white">
-      <Link
-        href="/"
-        className="nav-brand text-lg uppercase text-[#0a0a0a] hover:opacity-70 transition-opacity"
-      >
-        Machine Dreams
-      </Link>
+    <header
+      className={`flex items-center px-6 py-4 bg-white ${onGallery ? "justify-end" : "justify-between"}`}
+    >
+      {!onGallery && (
+        <Link
+          href="/"
+          className="nav-brand text-lg uppercase text-[#0a0a0a] hover:opacity-70 transition-opacity"
+        >
+          Machine Dreams
+        </Link>
+      )}
       {onGallery ? (
         <Link href="/" className="btn-nav">
           Home

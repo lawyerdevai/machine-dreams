@@ -60,6 +60,8 @@ function useTypewriter(source: string, active: boolean) {
   };
 }
 
+const INTRO_FAILED_MESSAGE = "Introduction failed. Please try again.";
+
 /** Loads intro from Redis cache or /api/intro. Types only when animate is true. */
 function useIntroStream(
   tokenId: string,
@@ -88,19 +90,19 @@ function useIntroStream(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tokenId }),
         });
-        if (!res.ok) throw new Error("Introduction failed");
+        if (!res.ok) throw new Error(INTRO_FAILED_MESSAGE);
         let full = "";
         await consumeSSE(res, (event) => {
           if (event.type === "text") {
             full += event.text as string;
             setIntroSource(full);
           } else if (event.type === "error") {
-            throw new Error(event.message as string);
+            throw new Error(INTRO_FAILED_MESSAGE);
           }
         });
         setIntroLoaded(true);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Introduction failed");
+      } catch {
+        setError(INTRO_FAILED_MESSAGE);
         setIntroLoaded(true);
       }
     })();
@@ -336,7 +338,7 @@ function ExpiredRightColumn({
         {regenerating ? "Regenerating..." : "Regenerate Artwork"}
       </button>
       {regenerateFailed && (
-        <p className={`${TYPE.proseSm} text-[#666]`}>
+        <p className={`${TYPE.proseSm} text-[#dc2626]`}>
           {ARTWORK_CREATION_USER_MESSAGE}
         </p>
       )}
@@ -464,7 +466,7 @@ function DiscoveryRightColumn({
           {phase === "creating" && <DreamingStatus />}
 
           {creationFailed && (
-            <p className={`${TYPE.proseSm} text-[#666]`}>
+            <p className={`${TYPE.proseSm} text-[#dc2626]`}>
               {ARTWORK_CREATION_USER_MESSAGE}
             </p>
           )}
