@@ -12,11 +12,10 @@ export function formatTokenId(tokenId: string) {
 
 export function formatCreatedAt(iso: string) {
   const date = new Date(iso);
-  return `Created ${date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })}`;
+  const month = date.toLocaleDateString("en-US", { month: "long" });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `Created ${month} ${day}, ${year}`;
 }
 
 export function sentenceCase(text: string) {

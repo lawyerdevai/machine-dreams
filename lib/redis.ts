@@ -263,7 +263,9 @@ export async function getAllArtworks(): Promise<Artwork[]> {
 }
 
 export async function getValidArtworks(): Promise<Artwork[]> {
-  return (await getAllArtworks()).filter((a) => !isExpired(a));
+  return (await getAllArtworks()).filter(
+    (a) => !isExpired(a) && a.evalBatch !== true
+  );
 }
 
 export async function getAllArchivedArtworks(): Promise<Artwork[]> {

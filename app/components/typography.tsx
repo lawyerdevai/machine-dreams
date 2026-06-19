@@ -42,8 +42,12 @@ export function AgentName({
   as?: "span" | "p";
 }) {
   return (
-    <Tag className={prominent ? TYPE.metadataLg : TYPE.metadata}>
-      {lowercaseName(name)}
+    <Tag
+      className={
+        prominent ? `${TYPE.proseSm} font-bold` : TYPE.metadata
+      }
+    >
+      {prominent ? sentenceCase(lowercaseName(name)) : lowercaseName(name)}
     </Tag>
   );
 }
@@ -79,7 +83,7 @@ export function CreatedDate({
   iso: string;
   as?: "p" | "span";
 }) {
-  return <Tag className={TYPE.metadata}>{formatCreatedAt(iso)}</Tag>;
+  return <Tag className={TYPE.proseSm}>{formatCreatedAt(iso)}</Tag>;
 }
 
 export function ProseSm({

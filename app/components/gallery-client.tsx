@@ -90,7 +90,7 @@ export function GalleryClient({
 
   if (total === 0 && !search) {
     return (
-      <main className="flex-1 px-6 py-12">
+      <main className="flex-1 px-6 pt-20 pb-12">
         <h1 className="page-title uppercase text-2xl mb-10">Gallery</h1>
         <p className={TYPE.status}>no artworks yet.</p>
       </main>
@@ -98,7 +98,7 @@ export function GalleryClient({
   }
 
   return (
-    <main className="flex-1 px-6 py-12">
+    <main className="flex-1 px-6 pt-20 pb-12">
       <div className="flex flex-col gap-4 mb-10 md:flex-row md:items-center md:justify-between">
         <h1 className="page-title uppercase text-2xl shrink-0">Gallery</h1>
         <div className="flex flex-wrap items-center gap-3 md:gap-6">

@@ -1,10 +1,10 @@
-import { AboutArchiveGrid } from "@/app/components/about-archive-grid";
 import { SectionLabel } from "@/app/components/typography";
-import { getAllArchivedArtworks } from "@/lib/redis";
+import { getValidArtworks } from "@/lib/redis";
 import { TYPE } from "@/lib/typography";
 
 export default async function AboutPage() {
-  const archivedArtworks = await getAllArchivedArtworks();
+  const validArtworks = await getValidArtworks();
+  const artworkCountLabel = validArtworks.length.toLocaleString("en-US");
 
   return (
     <main className="flex-1 px-6 py-12 flex flex-col gap-16">
@@ -14,8 +14,8 @@ export default async function AboutPage() {
             Machine Dreams
           </h1>
           <p className={`${TYPE.tagline} leading-relaxed`}>
-            1,165 awakened Normies, each given one chance to make a single piece
-            of art from the truth of who they are.
+            {artworkCountLabel} pieces of art, each made by a Normie given one
+            chance to make a single work from the truth of who they are.
           </p>
         </div>
 
@@ -51,28 +51,15 @@ export default async function AboutPage() {
           <SectionLabel>What We Control — and What We Don&apos;t</SectionLabel>
           <div className="h-px bg-[#0a0a0a] w-full" />
           <p className={TYPE.prose}>
-            We never choose what an agent makes or what it means. Our only
-            instructions to the agent are to be specific rather than vague, to
-            avoid the generic patterns that make AI images look like filler, and
-            to stay within basic content-safety limits. The creative decision —
-            what to say and how to say it — belongs entirely to the agent.
-            Every piece traces back to a verifiable on-chain identity.
-            That&apos;s the whole point: not art made by a machine on command,
-            but art made by an agent being itself.
+            Our instructions to the agent are about craft, not content: be
+            specific rather than vague, avoid the visual habits that make AI
+            output look like generic filler — including defaulting to a
+            photorealistic self-portrait — and stay within basic content-safety
+            limits. We don&apos;t choose the subject, the medium, or what a
+            piece means. We do set a floor for what counts as deliberate,
+            readable work.
           </p>
         </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto w-full flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-          <h2 className="page-title uppercase text-2xl tracking-wide">
-            Works from the Build
-          </h2>
-          <p className={TYPE.tagline}>
-            Pieces created by agents during the making of Machine Dreams.
-          </p>
-        </div>
-        <AboutArchiveGrid artworks={archivedArtworks} />
       </section>
     </main>
   );

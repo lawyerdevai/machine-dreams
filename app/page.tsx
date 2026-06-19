@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getValidArtworks } from "@/lib/redis";
-import { getAwakenedAgentCount } from "@/lib/normies";
 import { Ticker } from "@/app/components/ticker";
 import { LandingHero } from "@/app/components/landing-hero";
 
@@ -14,10 +13,7 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 export default async function Home() {
-  const [artworks, awakenedCount] = await Promise.all([
-    getValidArtworks(),
-    getAwakenedAgentCount(),
-  ]);
+  const artworks = await getValidArtworks();
   const tickerImages = artworks.map((a) => a.imageUrl);
   const topTickerImages = shuffle(tickerImages);
   const bottomTickerImages = shuffle(tickerImages);
@@ -27,7 +23,7 @@ export default async function Home() {
       <div className="h-6 bg-white shrink-0" />
       <Ticker images={topTickerImages} direction="left" />
 
-      <LandingHero awakenedCount={awakenedCount} />
+      <LandingHero awakenedCount={artworks.length} />
 
       <div className="h-6 bg-white shrink-0" />
       <Ticker images={bottomTickerImages} direction="right" />

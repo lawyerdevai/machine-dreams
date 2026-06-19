@@ -3,17 +3,13 @@ interface TickerProps {
   direction: "left" | "right";
 }
 
-const MIN_SQUARES = 16;
 const SIZE = 160;
 
-function buildTickerItems(images: (string | null)[]): (string | null)[] {
-  const valid = images.filter(Boolean) as string[];
-  const base = valid.length > 0 ? valid : Array(MIN_SQUARES).fill(null);
-  return [...base, ...base];
-}
-
 export function Ticker({ images, direction }: TickerProps) {
-  const items = buildTickerItems(images);
+  const valid = images.filter(Boolean) as string[];
+  if (valid.length === 0) return null;
+
+  const items = [...valid, ...valid];
 
   return (
     <div

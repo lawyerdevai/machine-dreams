@@ -19,7 +19,11 @@ export function Nav() {
       >
         Machine Dreams
       </Link>
-      {!onGallery && (
+      {onGallery ? (
+        <Link href="/" className="btn-nav">
+          Home
+        </Link>
+      ) : (
         <Link href="/gallery" className="btn-nav">
           Gallery
         </Link>

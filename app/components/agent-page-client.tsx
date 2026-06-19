@@ -134,8 +134,8 @@ function DreamingStatus() {
   }, []);
 
   return (
-    <p className={TYPE.status}>
-      dreaming{".".repeat(dots)}
+    <p className={`${TYPE.proseSm} italic`}>
+      Dreaming{".".repeat(dots)}
     </p>
   );
 }
