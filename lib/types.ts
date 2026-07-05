@@ -10,7 +10,6 @@ export interface Artwork {
   createdAt: string;
   mintedAt: string | null;
   imageExpired?: boolean;
-  evalBatch?: boolean;
 }
 
 export interface AgentInfo {

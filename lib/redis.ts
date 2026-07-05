@@ -180,17 +180,6 @@ export async function getGalleryArtworks({
   };
 }
 
-export async function deleteEvalBatchArtworks(): Promise<number> {
-  const artworks = await getAllArtworks();
-  const evalArtworks = artworks.filter((a) => a.evalBatch === true);
-
-  await Promise.all(
-    evalArtworks.map((a) => deleteArtwork(a.tokenId))
-  );
-
-  return evalArtworks.length;
-}
-
 export async function deleteExpiredArtworks(): Promise<number> {
   const tokenIds = await redis.smembers<string[]>(ARTWORK_INDEX);
   if (!tokenIds || tokenIds.length === 0) return 0;
@@ -263,9 +252,7 @@ export async function getAllArtworks(): Promise<Artwork[]> {
 }
 
 export async function getValidArtworks(): Promise<Artwork[]> {
-  return (await getAllArtworks()).filter(
-    (a) => !isExpired(a) && a.evalBatch !== true
-  );
+  return (await getAllArtworks()).filter((a) => !isExpired(a));
 }
 
 export async function getAllArchivedArtworks(): Promise<Artwork[]> {

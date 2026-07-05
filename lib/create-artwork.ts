@@ -24,7 +24,6 @@ export function isArtworkCreationError(
 
 export type CreateArtworkOptions = {
   regenerate?: boolean;
-  evalBatch?: boolean;
 };
 
 export type CreateArtworkResult = {
@@ -136,8 +135,7 @@ export async function completeArtworkCreation(
   meta: {
     previousCreatedAt?: string;
     previousMintedAt: string | null;
-  },
-  options: Pick<CreateArtworkOptions, "evalBatch"> = {}
+  }
 ): Promise<CreateArtworkResult> {
   const replicateUrl = await generateImage(parsed.imagePrompt);
   const imageUrl = await persistImageToBlob(replicateUrl, tokenId);
@@ -154,7 +152,6 @@ export async function completeArtworkCreation(
     createdAt: meta.previousCreatedAt ?? new Date().toISOString(),
     mintedAt: meta.previousMintedAt,
     imageExpired: false,
-    ...(options.evalBatch ? { evalBatch: true } : {}),
   };
 
   await saveArtwork(artwork);
@@ -181,8 +178,7 @@ export async function createArtwork(
       tokenId,
       parsed,
       agentInfo,
-      { previousCreatedAt, previousMintedAt },
-      options
+      { previousCreatedAt, previousMintedAt }
     );
   } catch (err) {
     if (
