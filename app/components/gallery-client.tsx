@@ -61,10 +61,12 @@ export function GalleryClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [searchInput, setSearchInput] = useState(search);
+  const [prevSearch, setPrevSearch] = useState(search);
 
-  useEffect(() => {
+  if (search !== prevSearch) {
+    setPrevSearch(search);
     setSearchInput(search);
-  }, [search]);
+  }
 
   function replaceParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());

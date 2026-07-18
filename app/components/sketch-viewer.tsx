@@ -1,9 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { TYPE } from "@/lib/typography";
 
 const THUMBNAIL_CAPTURE_DELAY_MS = 4000;
+
+// window.location.origin never changes for the lifetime of a page load, so
+// this store never needs to notify subscribers — it just needs to report
+// "" during SSR/hydration and the real origin once mounted on the client.
+function subscribeToNothing() {
+  return () => {};
+}
+function getClientOrigin() {
+  return window.location.origin;
+}
+function getServerOrigin() {
+  return "";
+}
 
 function escapeScriptClose(code: string): string {
   return code.replace(/<\/script/gi, "<\\/script");
@@ -65,14 +84,14 @@ export function SketchViewer({
   tokenId: string;
   hasThumbnail: boolean;
 }) {
-  const [origin, setOrigin] = useState("");
+  const origin = useSyncExternalStore(
+    subscribeToNothing,
+    getClientOrigin,
+    getServerOrigin
+  );
   const [failed, setFailed] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const capturedRef = useRef(hasThumbnail);
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
 
   const html = useMemo(
     () => (origin ? buildSketchDocument(sketchCode, origin) : ""),

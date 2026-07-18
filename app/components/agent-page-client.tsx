@@ -69,20 +69,15 @@ function useIntroStream(
   cachedIntro: string | null,
   animate: boolean
 ) {
-  const [introSource, setIntroSource] = useState("");
-  const [introLoaded, setIntroLoaded] = useState(false);
+  const [introSource, setIntroSource] = useState(cachedIntro ?? "");
+  const [introLoaded, setIntroLoaded] = useState(!!cachedIntro);
   const [error, setError] = useState("");
   const started = useRef(false);
 
   useEffect(() => {
+    if (cachedIntro) return;
     if (started.current) return;
     started.current = true;
-
-    if (cachedIntro) {
-      setIntroSource(cachedIntro);
-      setIntroLoaded(true);
-      return;
-    }
 
     (async () => {
       try {
