@@ -1,10 +1,13 @@
 import { sseEvent } from "@/lib/ai";
 import { ARTWORK_CREATION_ERROR_CODE } from "@/lib/artwork-creation-messages";
 import { createArtwork } from "@/lib/create-artwork";
-import { getArtworkRaw } from "@/lib/redis";
-import { fetchSketchCode } from "@/lib/storage";
 
 export const maxDuration = 120;
+
+// SEASON-2-MOTION TEST BRANCH ONLY — do not merge to main.
+// The existing-artwork short-circuit (and its "Artwork already exists"
+// fallback below) is removed so generation can be triggered for any
+// awakened Normie, including ones that already have a Season 1 piece.
 
 export async function POST(request: Request) {
   const { tokenId, regenerate } = await request.json();
@@ -13,21 +16,6 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "tokenId required" }), {
       status: 400,
     });
-  }
-
-  const existing = await getArtworkRaw(tokenId);
-
-  if (existing && !existing.imageExpired && !regenerate) {
-    return new Response(
-      JSON.stringify({
-        title: existing.title,
-        artistStatement: existing.artistStatement,
-        kind: existing.kind ?? "image",
-        imageUrl: existing.imageUrl,
-        sketchUrl: existing.sketchUrl,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
   }
 
   const encoder = new TextEncoder();
@@ -50,29 +38,6 @@ export async function POST(request: Request) {
           )
         );
       } catch (err) {
-        if (err instanceof Error && err.message === "Artwork already exists") {
-          const sketchCode =
-            existing!.kind === "sketch" && existing!.sketchUrl
-              ? await fetchSketchCode(existing!.sketchUrl)
-              : undefined;
-
-          controller.enqueue(
-            encoder.encode(
-              sseEvent({
-                type: "complete",
-                title: existing!.title,
-                artistStatement: existing!.artistStatement,
-                kind: existing!.kind ?? "image",
-                imageUrl: existing!.imageUrl,
-                sketchUrl: existing!.sketchUrl,
-                sketchCode,
-                createdAt: existing!.createdAt,
-              })
-            )
-          );
-          return;
-        }
-
         if (err instanceof Error && err.message === "Agent not found") {
           controller.enqueue(
             encoder.encode(

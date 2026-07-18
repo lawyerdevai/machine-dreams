@@ -91,9 +91,9 @@ export async function generateCreationPayload(
   const previousCreatedAt = existing?.createdAt;
   const previousMintedAt = existing?.mintedAt ?? null;
 
-  if (existing && !existing.imageExpired && !options.regenerate) {
-    throw new Error("Artwork already exists");
-  }
+  // SEASON-2-MOTION TEST BRANCH ONLY — do not merge to main.
+  // Existing-artwork guard removed so generation can be triggered for any
+  // awakened Normie regardless of whether it already has a piece.
 
   const [agentInfo, burnHistory] = await Promise.all([
     getAgentInfo(tokenId),
