@@ -14,7 +14,9 @@ function shuffle<T>(items: T[]): T[] {
 
 export default async function Home() {
   const artworks = await getValidArtworks();
-  const tickerImages = artworks.map((a) => a.imageUrl);
+  const tickerImages = artworks
+    .map((a) => a.imageUrl)
+    .filter((url): url is string => !!url);
   const topTickerImages = shuffle(tickerImages);
   const bottomTickerImages = shuffle(tickerImages);
 

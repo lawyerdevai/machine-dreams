@@ -2,6 +2,7 @@ import { sseEvent } from "@/lib/ai";
 import { ARTWORK_CREATION_ERROR_CODE } from "@/lib/artwork-creation-messages";
 import { createArtwork } from "@/lib/create-artwork";
 import { getArtworkRaw } from "@/lib/redis";
+import { fetchSketchCode } from "@/lib/storage";
 
 export const maxDuration = 120;
 
@@ -20,8 +21,10 @@ export async function POST(request: Request) {
     return new Response(
       JSON.stringify({
         title: existing.title,
-        imageUrl: existing.imageUrl,
         artistStatement: existing.artistStatement,
+        kind: existing.kind ?? "image",
+        imageUrl: existing.imageUrl,
+        sketchUrl: existing.sketchUrl,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
@@ -39,20 +42,30 @@ export async function POST(request: Request) {
               type: "complete",
               title: result.title,
               artistStatement: result.artistStatement,
-              imageUrl: result.imageUrl,
+              kind: result.kind,
+              sketchCode: result.sketchCode,
+              sketchUrl: result.sketchUrl,
               createdAt: result.createdAt,
             })
           )
         );
       } catch (err) {
         if (err instanceof Error && err.message === "Artwork already exists") {
+          const sketchCode =
+            existing!.kind === "sketch" && existing!.sketchUrl
+              ? await fetchSketchCode(existing!.sketchUrl)
+              : undefined;
+
           controller.enqueue(
             encoder.encode(
               sseEvent({
                 type: "complete",
                 title: existing!.title,
                 artistStatement: existing!.artistStatement,
+                kind: existing!.kind ?? "image",
                 imageUrl: existing!.imageUrl,
+                sketchUrl: existing!.sketchUrl,
+                sketchCode,
                 createdAt: existing!.createdAt,
               })
             )

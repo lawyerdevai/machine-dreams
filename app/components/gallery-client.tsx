@@ -28,6 +28,16 @@ const GALLERY_IMAGE_SIZES: Record<Exclude<GalleryView, "wall">, string> = {
 
 const VIEW_OPTIONS = ["small", "medium", "large", "wall"] as const;
 
+function PlaceholderTile({ title }: { title: string }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a] p-2">
+      <span className="truncate text-center font-serif text-[10px] uppercase leading-tight tracking-wide text-white/50">
+        {uppercaseTitle(title)}
+      </span>
+    </div>
+  );
+}
+
 interface GalleryClientProps {
   artworks: Artwork[];
   total: number;
@@ -151,14 +161,18 @@ export function GalleryClient({
               href={`/artwork/${artwork.tokenId}`}
               className="group relative aspect-square overflow-hidden bg-[#0a0a0a]"
             >
-              <Image
-                src={artwork.imageUrl}
-                alt={artwork.title}
-                fill
-                sizes="90px"
-                loading="lazy"
-                className="object-cover"
-              />
+              {artwork.imageUrl ? (
+                <Image
+                  src={artwork.imageUrl}
+                  alt={artwork.title}
+                  fill
+                  sizes="90px"
+                  loading="lazy"
+                  className="object-cover"
+                />
+              ) : (
+                <PlaceholderTile title={artwork.title} />
+              )}
               <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/70 p-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                 <span className="truncate font-serif text-[10px] uppercase leading-tight tracking-wide text-white">
                   {uppercaseTitle(artwork.title)}
@@ -179,13 +193,17 @@ export function GalleryClient({
               className="group border border-[#0a0a0a] transition-transform duration-200 hover:scale-[1.02]"
             >
               <div className="relative aspect-square w-full overflow-hidden">
-                <Image
-                  src={artwork.imageUrl}
-                  alt={artwork.title}
-                  fill
-                  sizes={GALLERY_IMAGE_SIZES[view]}
-                  className="object-cover"
-                />
+                {artwork.imageUrl ? (
+                  <Image
+                    src={artwork.imageUrl}
+                    alt={artwork.title}
+                    fill
+                    sizes={GALLERY_IMAGE_SIZES[view]}
+                    className="object-cover"
+                  />
+                ) : (
+                  <PlaceholderTile title={artwork.title} />
+                )}
               </div>
               <div className="p-3 flex flex-col gap-1">
                 <TileTitle title={artwork.title} />

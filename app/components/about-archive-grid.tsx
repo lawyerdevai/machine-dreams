@@ -12,14 +12,16 @@ export function AboutArchiveGrid({ artworks }: { artworks: Artwork[] }) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
       {artworks.map((artwork) => (
         <div key={artwork.tokenId} className="border border-[#0a0a0a]">
-          <div className="relative aspect-square w-full overflow-hidden">
-            <Image
-              src={artwork.imageUrl}
-              alt={artwork.agentName}
-              fill
-              sizes="(max-width: 768px) 50vw, 25vw"
-              className="object-cover"
-            />
+          <div className="relative aspect-square w-full overflow-hidden bg-[#0a0a0a]">
+            {artwork.imageUrl && (
+              <Image
+                src={artwork.imageUrl}
+                alt={artwork.agentName}
+                fill
+                sizes="(max-width: 768px) 50vw, 25vw"
+                className="object-cover"
+              />
+            )}
           </div>
           <div className="p-3 flex flex-col gap-1">
             <AgentTokenLine

@@ -7,15 +7,18 @@ import {
 } from "@/app/components/typography";
 import { agentImageUrl } from "@/lib/normies";
 import type { Artwork } from "@/lib/types";
+import { SketchViewer } from "@/app/components/sketch-viewer";
 
 const IMAGE_FRAME = "w-full aspect-square";
 
 export function ArtworkPageClient({
   artwork,
   intro,
+  sketchCode,
 }: {
   artwork: Artwork;
   intro: string | null;
+  sketchCode: string | null;
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-16 w-full max-w-6xl mx-auto">
@@ -34,11 +37,19 @@ export function ArtworkPageClient({
       <div className="flex flex-col gap-6">
         <ArtworkTitle title={artwork.title} />
         <div className={IMAGE_FRAME}>
-          <img
-            src={artwork.imageUrl}
-            alt={artwork.title}
-            className="w-full h-full object-contain"
-          />
+          {artwork.kind === "sketch" && sketchCode ? (
+            <SketchViewer
+              sketchCode={sketchCode}
+              tokenId={artwork.tokenId}
+              hasThumbnail={!!artwork.imageUrl}
+            />
+          ) : (
+            <img
+              src={artwork.imageUrl}
+              alt={artwork.title}
+              className="w-full h-full object-contain"
+            />
+          )}
         </div>
         <div className="flex flex-col gap-3">
           <SectionLabel>Artist Statement</SectionLabel>

@@ -13,6 +13,7 @@ import { ARTWORK_CREATION_USER_MESSAGE } from "@/lib/artwork-creation-messages";
 import { sentenceCase } from "@/lib/format";
 import { TYPE } from "@/lib/typography";
 import { agentImageUrl } from "@/lib/normies";
+import { SketchViewer } from "@/app/components/sketch-viewer";
 
 const GRID =
   "grid grid-cols-1 md:grid-cols-2 gap-16 w-full max-w-6xl mx-auto";
@@ -187,13 +188,19 @@ function AgentLeftColumn({
 
 /** Right column STATE 2 — pixel-identical to /artwork/[tokenId] */
 function ArtworkRightColumn({
+  tokenId,
   title,
+  kind,
   imageUrl,
+  sketchCode,
   artistStatement,
   createdAt,
 }: {
+  tokenId: string;
   title: string;
-  imageUrl: string;
+  kind: "image" | "sketch";
+  imageUrl: string | null;
+  sketchCode: string | null;
   artistStatement: string;
   createdAt: string;
 }) {
@@ -201,11 +208,19 @@ function ArtworkRightColumn({
     <div className="flex flex-col gap-6">
       <ArtworkTitle title={title} />
       <div className={IMAGE_FRAME}>
-        <img
-          src={imageUrl}
-          alt={title}
-          className="w-full h-full object-contain"
-        />
+        {kind === "sketch" && sketchCode ? (
+          <SketchViewer
+            sketchCode={sketchCode}
+            tokenId={tokenId}
+            hasThumbnail={!!imageUrl}
+          />
+        ) : (
+          <img
+            src={imageUrl ?? undefined}
+            alt={title}
+            className="w-full h-full object-contain"
+          />
+        )}
       </div>
       <div className="flex flex-col gap-3">
         <SectionLabel>Artist Statement</SectionLabel>
@@ -222,6 +237,7 @@ type Phase = "intro" | "question" | "ready" | "creating" | "complete";
 interface AgentPageClientProps {
   agent: AgentInfo;
   artwork: Artwork | null;
+  sketchCode: string | null;
   expiredArtwork: Artwork | null;
   cachedIntro: string | null;
 }
@@ -229,6 +245,7 @@ interface AgentPageClientProps {
 export function AgentPageClient({
   agent,
   artwork,
+  sketchCode,
   expiredArtwork,
   cachedIntro,
 }: AgentPageClientProps) {
@@ -250,8 +267,11 @@ export function AgentPageClient({
 
       {artwork ? (
         <ArtworkRightColumn
+          tokenId={artwork.tokenId}
           title={artwork.title}
-          imageUrl={artwork.imageUrl}
+          kind={artwork.kind ?? "image"}
+          imageUrl={artwork.imageUrl ?? null}
+          sketchCode={sketchCode}
           artistStatement={artwork.artistStatement}
           createdAt={artwork.createdAt}
         />
@@ -363,7 +383,8 @@ function DiscoveryRightColumn({
   const questionShown = useRef(false);
 
   const [title, setTitle] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [kind, setKind] = useState<"image" | "sketch">("sketch");
+  const [sketchCode, setSketchCode] = useState<string | null>(null);
   const [artistStatement, setArtistStatement] = useState("");
   const [createdAt, setCreatedAt] = useState("");
   const [showQuestion, setShowQuestion] = useState(false);
@@ -388,7 +409,7 @@ function DiscoveryRightColumn({
     setPhase("creating");
     setShowCreate(false);
     setShowQuestion(false);
-    setImageUrl(null);
+    setSketchCode(null);
     setTitle("");
     setArtistStatement("");
     setCreatedAt("");
@@ -419,7 +440,8 @@ function DiscoveryRightColumn({
         if (event.type === "complete") {
           setTitle(event.title as string);
           setArtistStatement(event.artistStatement as string);
-          setImageUrl(event.imageUrl as string);
+          setKind((event.kind as "image" | "sketch" | undefined) ?? "sketch");
+          setSketchCode((event.sketchCode as string) ?? null);
           setCreatedAt(event.createdAt as string);
           setPhase("complete");
         } else if (event.type === "error") {
@@ -435,14 +457,17 @@ function DiscoveryRightColumn({
   }, [agent.tokenId]);
 
   const isComplete =
-    phase === "complete" && title && imageUrl && artistStatement && createdAt;
+    phase === "complete" && title && sketchCode && artistStatement && createdAt;
 
   return (
     <div className="flex flex-col gap-6 min-h-[40vh]">
       {isComplete ? (
         <ArtworkRightColumn
+          tokenId={agent.tokenId}
           title={title}
-          imageUrl={imageUrl}
+          kind={kind}
+          imageUrl={null}
+          sketchCode={sketchCode}
           artistStatement={artistStatement}
           createdAt={createdAt}
         />

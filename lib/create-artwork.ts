@@ -1,10 +1,10 @@
 import "server-only";
 
-import { anthropic, generateImage, parseClaudeJson } from "@/lib/ai";
+import { anthropic, parseClaudeJson } from "@/lib/ai";
 import { ARTWORK_CREATION_ERROR_CODE } from "@/lib/artwork-creation-messages";
 import { getAgentInfo, getBurnHistory } from "@/lib/normies";
 import { getArtworkRaw, saveArtwork } from "@/lib/redis";
-import { persistImageToBlob } from "@/lib/storage";
+import { persistSketchToBlob } from "@/lib/storage";
 import type { AgentInfo, Artwork, CreationPayload } from "@/lib/types";
 
 export class ArtworkCreationError extends Error {
@@ -31,33 +31,38 @@ export type CreateArtworkResult = {
   agentName: string;
   title: string;
   artistStatement: string;
-  imageUrl: string;
+  sketchCode: string;
+  sketchUrl: string;
+  kind: "sketch";
   createdAt: string;
 };
 
 function buildCreateUserMessage(
   burnHistory: unknown[],
-  mintTraits: Record<string, unknown>
+  _mintTraits: Record<string, unknown>
 ): string {
-  return `You are creating a single artwork on one canvas.
+  return `You have one canvas. It moves.
 
-Identity context (this is part of who you are, not a checklist to depict): your mint traits — ${JSON.stringify(mintTraits)} — and your on-chain activity — ${JSON.stringify(burnHistory)}.
+Show us how your world works — not what it looks like, but how it behaves. The rhythm of it. The weight of it. What it does when nothing is watching.
 
-Do not limit yourself to any particular aesthetic, medium, or style.
+You decide everything: what lives in this world, how it moves, what it resists, what it repeats, what breaks. Make it unmistakably yours — something no other agent could have made.
 
-The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject. If your work is a self-portrait, render it in a distinctly artistic medium — never as photorealistic photography. Self-portraits should be the exception, not the default — most agents express themselves through other subjects, objects, or abstractions entirely.
+On-chain context (part of your story, not a checklist): ${JSON.stringify(burnHistory)}.
 
-There is no restriction on style or medium — anything genuinely fitting your identity is welcome. The only thing to avoid is output that reads as generic AI filler: crisp, clean studio-photography-style 3D renders of objects, sculptures, or architecture floating in empty space, and photorealistic human headshots. Aim for something that looks intentionally made and worth sharing, not something a machine produced by default.
+Write a self-contained p5.js sketch in global mode that expresses this. Requirements:
+- Define setup() calling createCanvas(windowWidth, windowHeight)
+- Define draw() for the animation loop
+- Define windowResized() calling resizeCanvas(windowWidth, windowHeight)
+- No network calls, no external assets, no DOM access outside the canvas, p5 core only
+- No nudity, sexual content, graphic violence, or hate symbols
 
-Describe a single artistic medium applied to one surface that IS the artwork itself — a drawing, a painting, a print, a woven piece, a pixel composition — and let it fill the frame. Do NOT describe the work as a collage, board, wall, or arrangement of multiple real-world objects (such as torn photographs, receipts, sticky notes, handwritten notes pinned together, red thread, or signage on wood); these read as photographs of a cluttered surface rather than a singular artwork.
-
-The imagePrompt must never include nudity, sexual content, graphic violence, gore, hate symbols, or other content that would violate standard content moderation policy. Choose a different subject or composition if your initial impulse trends in that direction.
+Avoid defaults that feel like decisions but aren't: smooth constant rotation, particles floating upward, rainbow color cycling, perfect symmetry at uniform speed, sine waves for their own sake. These are screensavers, not expression. Make something that feels like it came from a specific internal logic. Motion should have weight or intention or resistance. Color should feel chosen. If someone watched this for sixty seconds they should understand something about you that words wouldn't say.
 
 Respond with JSON only:
 {
-  "title": "short evocative title, 3-5 words max, no quotes",
-  "imagePrompt": "detailed image generation prompt for Replicate",
-  "artistStatement": "3 sentences in past tense, gallery-card style reflecting on the completed work"
+  "title": "3-5 words, no quotes",
+  "sketchCode": "complete self-contained p5.js sketch as a string",
+  "artistStatement": "2-3 sentences in your own voice, past tense. Not gallery language. What you made, what it does, why it moves the way it does."
 }`;
 }
 
@@ -66,7 +71,7 @@ function parseCreationPayload(text: string): CreationPayload {
     const parsed = parseClaudeJson<CreationPayload>(text);
     if (
       !parsed.title?.trim() ||
-      !parsed.imagePrompt?.trim() ||
+      !parsed.sketchCode?.trim() ||
       !parsed.artistStatement?.trim()
     ) {
       throw new ArtworkCreationError();
@@ -103,22 +108,31 @@ export async function generateCreationPayload(
     (agentInfo.traits as { attributes?: Record<string, unknown> } | undefined)
       ?.attributes ?? {};
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 2048,
-    system: agentInfo.systemPrompt ?? "",
-    messages: [
-      {
-        role: "user",
-        content: buildCreateUserMessage(burnHistory, mintTraits),
-      },
-    ],
-  });
+  const userMessage = buildCreateUserMessage(burnHistory, mintTraits);
 
-  const text =
-    message.content[0].type === "text" ? message.content[0].text : "";
+  const requestSketchPayload = async () => {
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 8000,
+      system: agentInfo.systemPrompt ?? "",
+      messages: [{ role: "user", content: userMessage }],
+    });
 
-  const parsed = parseCreationPayload(text);
+    const text =
+      message.content[0].type === "text" ? message.content[0].text : "";
+
+    return parseCreationPayload(text);
+  };
+
+  let parsed: CreationPayload;
+  try {
+    parsed = await requestSketchPayload();
+  } catch (err) {
+    if (!isArtworkCreationError(err)) throw err;
+    // Sketch code is far more likely to break naive JSON parsing than a
+    // short prose imagePrompt was — retry once before giving up.
+    parsed = await requestSketchPayload();
+  }
 
   return {
     parsed,
@@ -137,18 +151,18 @@ export async function completeArtworkCreation(
     previousMintedAt: string | null;
   }
 ): Promise<CreateArtworkResult> {
-  const replicateUrl = await generateImage(parsed.imagePrompt);
-  const imageUrl = await persistImageToBlob(replicateUrl, tokenId);
+  const sketchUrl = await persistSketchToBlob(parsed.sketchCode, tokenId);
 
   const artwork: Artwork = {
     tokenId,
     agentName: agentInfo.name,
     agentType: agentInfo.type,
     agentLevel: agentInfo.canvas?.level ?? 1,
+    kind: "sketch",
     title: parsed.title,
     artistStatement: parsed.artistStatement,
-    imagePrompt: parsed.imagePrompt,
-    imageUrl,
+    sketchUrl,
+    imageUrl: undefined,
     createdAt: meta.previousCreatedAt ?? new Date().toISOString(),
     mintedAt: meta.previousMintedAt,
     imageExpired: false,
@@ -161,7 +175,9 @@ export async function completeArtworkCreation(
     agentName: agentInfo.name,
     title: parsed.title,
     artistStatement: parsed.artistStatement,
-    imageUrl,
+    sketchCode: parsed.sketchCode,
+    sketchUrl,
+    kind: "sketch",
     createdAt: artwork.createdAt,
   };
 }

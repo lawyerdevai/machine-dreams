@@ -66,6 +66,9 @@ export async function migrateExpiredArtworks(): Promise<void> {
       const tokenId = String(id);
       const artwork = await redis.get<Artwork>(artworkKey(tokenId));
       if (!artwork || artwork.imageExpired) return;
+      // Sketches without a captured thumbnail yet have no imageUrl to check —
+      // that's expected, not a broken/expired piece.
+      if (!artwork.imageUrl) return;
 
       const expired = await isImageUrlExpired(artwork.imageUrl);
       if (expired) {

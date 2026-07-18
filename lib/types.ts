@@ -5,8 +5,10 @@ export interface Artwork {
   agentLevel?: number;
   title: string;
   artistStatement: string;
+  kind?: "image" | "sketch";
   imagePrompt?: string;
-  imageUrl: string;
+  sketchUrl?: string;
+  imageUrl?: string;
   createdAt: string;
   mintedAt: string | null;
   imageExpired?: boolean;
@@ -34,6 +36,6 @@ export interface AwakenedAgent {
 
 export interface CreationPayload {
   title: string;
-  imagePrompt: string;
+  sketchCode: string;
   artistStatement: string;
 }
