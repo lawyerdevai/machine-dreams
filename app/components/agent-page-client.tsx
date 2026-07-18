@@ -266,14 +266,10 @@ export function AgentPageClient({
       />
 
       {artwork ? (
-        <ArtworkRightColumn
-          tokenId={artwork.tokenId}
-          title={artwork.title}
-          kind={artwork.kind ?? "image"}
-          imageUrl={artwork.imageUrl ?? null}
+        <ExistingArtworkColumn
+          agent={agent}
+          artwork={artwork}
           sketchCode={sketchCode}
-          artistStatement={artwork.artistStatement}
-          createdAt={artwork.createdAt}
         />
       ) : expiredArtwork ? (
         <ExpiredRightColumn
@@ -287,6 +283,78 @@ export function AgentPageClient({
           introComplete={intro.introComplete}
           introError={intro.error}
         />
+      )}
+    </div>
+  );
+}
+
+// SEASON-2-MOTION TEST BRANCH ONLY — do not merge to main.
+// Always shows a regenerate CTA below existing artwork, even when it's
+// still valid, so any awakened Normie can be pushed through the Season 2
+// sketch pipeline for testing without waiting on expiry.
+function ExistingArtworkColumn({
+  agent,
+  artwork,
+  sketchCode,
+}: {
+  agent: AgentInfo;
+  artwork: Artwork;
+  sketchCode: string | null;
+}) {
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenerateFailed, setRegenerateFailed] = useState(false);
+
+  async function handleRegenerate() {
+    setRegenerating(true);
+    setRegenerateFailed(false);
+    try {
+      const res = await fetch("/api/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokenId: agent.tokenId, regenerate: true }),
+      });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!res.ok) {
+        setRegenerateFailed(true);
+        setRegenerating(false);
+        return;
+      }
+      if (contentType.includes("text/event-stream")) {
+        await consumeSSE(res, (event) => {
+          if (event.type === "error") {
+            throw new Error("creation_failed");
+          }
+        });
+      }
+      window.location.reload();
+    } catch {
+      setRegenerateFailed(true);
+      setRegenerating(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <ArtworkRightColumn
+        tokenId={artwork.tokenId}
+        title={artwork.title}
+        kind={artwork.kind ?? "image"}
+        imageUrl={artwork.imageUrl ?? null}
+        sketchCode={sketchCode}
+        artistStatement={artwork.artistStatement}
+        createdAt={artwork.createdAt}
+      />
+      <button
+        onClick={handleRegenerate}
+        disabled={regenerating}
+        className="btn-minimal self-start disabled:opacity-40"
+      >
+        {regenerating ? "Regenerating..." : "Regenerate as Season 2"}
+      </button>
+      {regenerateFailed && (
+        <p className={`${TYPE.proseSm} text-[#dc2626]`}>
+          {ARTWORK_CREATION_USER_MESSAGE}
+        </p>
       )}
     </div>
   );
