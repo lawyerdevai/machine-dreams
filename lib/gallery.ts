@@ -1,14 +1,20 @@
-export type GalleryView = "small" | "medium" | "large";
+export type GalleryView = "small" | "medium" | "large" | "wall";
 export type GallerySort = "newest" | "oldest";
 
 export const GALLERY_PAGE_SIZE: Record<GalleryView, number> = {
   small: 48,
   medium: 24,
   large: 12,
+  wall: Number.MAX_SAFE_INTEGER,
 };
 
 export function parseGalleryView(value: string | null | undefined): GalleryView {
-  if (value === "small" || value === "medium" || value === "large") {
+  if (
+    value === "small" ||
+    value === "medium" ||
+    value === "large" ||
+    value === "wall"
+  ) {
     return value;
   }
   return "large";

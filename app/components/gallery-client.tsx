@@ -6,21 +6,27 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AgentTokenLine, TileTitle } from "@/app/components/typography";
 import { type GallerySort, type GalleryView } from "@/lib/gallery";
+import { lowercaseName, uppercaseTitle } from "@/lib/format";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 import { Pagination } from "./filter-bar";
 
-const GALLERY_VIEW_GRID: Record<GalleryView, string> = {
+const GALLERY_VIEW_GRID: Record<
+  Exclude<GalleryView, "wall">,
+  string
+> = {
   large: "grid-cols-2 md:grid-cols-4 gap-6",
   medium: "grid-cols-3 md:grid-cols-5 gap-5",
   small: "grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4",
 };
 
-const GALLERY_IMAGE_SIZES: Record<GalleryView, string> = {
+const GALLERY_IMAGE_SIZES: Record<Exclude<GalleryView, "wall">, string> = {
   large: "(max-width: 768px) 50vw, 25vw",
   medium: "(max-width: 768px) 33vw, 20vw",
   small: "(max-width: 768px) 25vw, 12vw",
 };
+
+const VIEW_OPTIONS = ["small", "medium", "large", "wall"] as const;
 
 interface GalleryClientProps {
   artworks: Artwork[];
@@ -115,7 +121,7 @@ export function GalleryClient({
             Oldest
           </button>
           <div className="flex items-center gap-2">
-            {(["small", "medium", "large"] as const).map((size) => (
+            {VIEW_OPTIONS.map((size) => (
               <button
                 key={size}
                 onClick={() => setView(size)}
@@ -137,6 +143,33 @@ export function GalleryClient({
 
       {artworks.length === 0 ? (
         <p className={TYPE.status}>no matching artworks.</p>
+      ) : view === "wall" ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-1">
+          {artworks.map((artwork) => (
+            <Link
+              key={artwork.tokenId}
+              href={`/artwork/${artwork.tokenId}`}
+              className="group relative aspect-square overflow-hidden bg-[#0a0a0a]"
+            >
+              <Image
+                src={artwork.imageUrl}
+                alt={artwork.title}
+                fill
+                sizes="90px"
+                loading="lazy"
+                className="object-cover"
+              />
+              <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/70 p-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <span className="truncate font-serif text-[10px] uppercase leading-tight tracking-wide text-white">
+                  {uppercaseTitle(artwork.title)}
+                </span>
+                <span className="truncate font-serif text-[10px] leading-tight text-white/80">
+                  {lowercaseName(artwork.agentName)}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
       ) : (
         <div className={`grid ${GALLERY_VIEW_GRID[view]}`}>
           {artworks.map((artwork) => (
@@ -166,11 +199,13 @@ export function GalleryClient({
         </div>
       )}
 
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setPage}
-      />
+      {view !== "wall" && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      )}
     </main>
   );
 }
