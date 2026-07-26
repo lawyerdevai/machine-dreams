@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 export function Nav() {
   const pathname = usePathname();
   const onGallery = pathname === "/gallery";
-
   if (pathname === "/") {
     return null;
   }

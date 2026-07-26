@@ -44,7 +44,7 @@ export function filterArtworks(
   const tokenQuery = q.replace(/^#/, "");
   return artworks.filter(
     (a) =>
-      a.agentName.toLowerCase().includes(q) ||
+      (a.agentName ?? "").toLowerCase().includes(q) ||
       a.tokenId.toLowerCase().includes(tokenQuery)
   );
 }

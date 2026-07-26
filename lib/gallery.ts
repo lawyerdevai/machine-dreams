@@ -38,7 +38,7 @@ export function matchesGallerySearch(
 
   const tokenQuery = q.replace(/^#/, "");
   return (
-    artwork.agentName.toLowerCase().includes(q) ||
+    (artwork.agentName ?? "").toLowerCase().includes(q) ||
     artwork.tokenId.toLowerCase().includes(tokenQuery)
   );
 }

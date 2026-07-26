@@ -1,13 +1,13 @@
 export function uppercaseTitle(text: string) {
-  return text.toUpperCase();
+  return (text ?? "").toUpperCase();
 }
 
-export function lowercaseName(text: string) {
-  return text.toLowerCase();
+export function lowercaseName(text: string | null | undefined) {
+  return (text ?? "").toLowerCase();
 }
 
-export function formatTokenId(tokenId: string) {
-  return `#${tokenId.toLowerCase()}`;
+export function formatTokenId(tokenId: string | null | undefined) {
+  return `#${(tokenId ?? "").toLowerCase()}`;
 }
 
 export function formatCreatedAt(iso: string) {

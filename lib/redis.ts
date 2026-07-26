@@ -153,7 +153,14 @@ export async function getGalleryArtworks({
     return { items: [], total: 0, page: 1, perPage, totalPages: 1 };
   }
 
-  let artworks = (await mgetArtworks(tokenIds)).filter((a) => !isExpired(a));
+  let artworks = (await mgetArtworks(tokenIds)).filter(
+    (a) =>
+      !isExpired(a) &&
+      typeof a.agentName === "string" &&
+      a.agentName.trim().length > 0 &&
+      typeof a.imageUrl === "string" &&
+      a.imageUrl.trim().length > 0
+  );
 
   if (search.trim()) {
     artworks = artworks.filter((a) => matchesGallerySearch(a, search));
@@ -252,7 +259,14 @@ export async function getAllArtworks(): Promise<Artwork[]> {
 }
 
 export async function getValidArtworks(): Promise<Artwork[]> {
-  return (await getAllArtworks()).filter((a) => !isExpired(a));
+  return (await getAllArtworks()).filter(
+    (a) =>
+      !isExpired(a) &&
+      typeof a.agentName === "string" &&
+      a.agentName.trim().length > 0 &&
+      typeof a.imageUrl === "string" &&
+      a.imageUrl.trim().length > 0
+  );
 }
 
 export async function getAllArchivedArtworks(): Promise<Artwork[]> {
