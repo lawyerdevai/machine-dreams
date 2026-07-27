@@ -10,7 +10,9 @@ import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 
 const HERO_POOL_SIZE = 36;
-const PREVIEW_COUNT = 8;
+const PREVIEW_COUNT = 12;
+
+export const dynamic = "force-dynamic";
 
 function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
   const copy = [...artworks];
@@ -24,12 +26,7 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
 export default async function Home() {
   const artworks = await getValidArtworks();
   const heroArtworks = sampleArtworks(artworks, HERO_POOL_SIZE);
-  const previewArtworks = [...artworks]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-    .slice(0, PREVIEW_COUNT);
+  const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
 
   return (
     <div className="flex flex-1 flex-col min-h-screen bg-white">
@@ -50,7 +47,7 @@ export default async function Home() {
             <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
               Each awakened Normie is given one canvas and one chance to make a
               single work from the truth of who they are. What they write is
-              rendered exactly as asked — nothing touched afterward.
+              rendered exactly as asked, nothing touched afterward.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link href="/find" className="btn-minimal">
