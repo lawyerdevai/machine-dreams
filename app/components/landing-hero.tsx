@@ -25,60 +25,64 @@ type HeroScene = {
   left: FrameBox;
   right: FrameBox;
   grade: SceneGrade;
+  /** Optional override for frame box-shadow (defaults to FRAME_SHADOW) */
+  frameShadow?: string;
 };
 
 /**
- * Per-scene canvas boxes (inner blank area). Tuned from visual estimates —
- * tweak these when comparing against the live page.
+ * Per-scene canvas boxes (inner blank area), measured from the 2172×724 sources.
+ * Filenames kept for stability; labels match the redesigned themes.
  */
 const SCENES: HeroScene[] = [
   {
-    id: "1920s",
-    label: "1920s gallery",
+    id: "gatsby",
+    label: "Great Gatsby",
     src: "/images/hero-scenes/gallery-1920s.png",
-    left: { left: "25.2%", top: "24.5%", width: "14.2%", height: "39.5%" },
-    right: { left: "60.3%", top: "24.5%", width: "14.2%", height: "39.5%" },
+    left: { left: "25.35%", top: "15.31%", width: "16.56%", height: "43.83%" },
+    right: { left: "60.53%", top: "15.03%", width: "16.65%", height: "44.11%" },
     grade: {
-      filter: "brightness(0.82) contrast(0.88) saturate(0.62) sepia(0.32)",
-      cast: "linear-gradient(180deg, rgba(210, 150, 70, 0.28) 0%, rgba(90, 55, 25, 0.22) 100%)",
+      filter: "brightness(0.8) contrast(0.86) saturate(0.58) sepia(0.34)",
+      cast: "linear-gradient(180deg, rgba(220, 170, 80, 0.3) 0%, rgba(100, 60, 25, 0.24) 100%)",
       castMix: "multiply",
     },
   },
   {
     id: "cyberpunk",
-    label: "Cyberpunk gallery",
+    label: "Cyberpunk",
     src: "/images/hero-scenes/gallery-cyberpunk.png",
-    left: { left: "25.0%", top: "24.8%", width: "14.5%", height: "39.8%" },
-    right: { left: "60.5%", top: "24.8%", width: "14.5%", height: "39.8%" },
+    left: { left: "25.21%", top: "18.76%", width: "17.02%", height: "42.31%" },
+    right: { left: "61.03%", top: "18.76%", width: "17.02%", height: "42.45%" },
     grade: {
-      filter: "brightness(0.8) contrast(0.9) saturate(0.58) hue-rotate(-8deg)",
-      cast: "linear-gradient(160deg, rgba(180, 60, 140, 0.32) 0%, rgba(40, 90, 160, 0.28) 100%)",
+      filter: "brightness(0.78) contrast(0.88) saturate(0.55) hue-rotate(-10deg)",
+      cast: "linear-gradient(155deg, rgba(200, 50, 150, 0.34) 0%, rgba(30, 70, 140, 0.3) 100%)",
       castMix: "soft-light",
     },
   },
   {
-    id: "renaissance",
-    label: "Renaissance gallery",
+    id: "mahogany",
+    label: "Old Mahogany Office",
     src: "/images/hero-scenes/gallery-renaissance.png",
-    left: { left: "25.5%", top: "25.0%", width: "14.0%", height: "39.0%" },
-    right: { left: "60.0%", top: "25.0%", width: "14.0%", height: "39.0%" },
+    left: { left: "25.63%", top: "19.18%", width: "16.15%", height: "41.35%" },
+    right: { left: "59.24%", top: "19.18%", width: "16.1%", height: "41.35%" },
     grade: {
-      filter: "brightness(0.84) contrast(0.9) saturate(0.65) sepia(0.22)",
-      cast: "linear-gradient(180deg, rgba(200, 160, 90, 0.24) 0%, rgba(80, 50, 30, 0.18) 100%)",
+      filter: "brightness(0.8) contrast(0.87) saturate(0.6) sepia(0.38)",
+      cast: "linear-gradient(180deg, rgba(210, 150, 70, 0.34) 0%, rgba(70, 40, 18, 0.28) 100%)",
       castMix: "multiply",
     },
   },
   {
-    id: "japanese",
-    label: "Japanese gallery",
+    id: "minimal",
+    label: "Minimalist Modern",
     src: "/images/hero-scenes/gallery-japanese.png",
-    left: { left: "25.5%", top: "24.0%", width: "14.5%", height: "38.0%" },
-    right: { left: "60.0%", top: "24.0%", width: "14.5%", height: "38.0%" },
+    left: { left: "25.95%", top: "21.39%", width: "16.61%", height: "41.9%" },
+    right: { left: "58.32%", top: "22.49%", width: "16.19%", height: "40.79%" },
     grade: {
-      filter: "brightness(0.9) contrast(0.9) saturate(0.68) sepia(0.12)",
-      cast: "linear-gradient(180deg, rgba(230, 215, 190, 0.2) 0%, rgba(160, 145, 120, 0.16) 100%)",
+      filter: "brightness(0.92) contrast(0.9) saturate(0.7) sepia(0.06)",
+      cast: "linear-gradient(180deg, rgba(220, 225, 230, 0.12) 0%, rgba(170, 165, 155, 0.14) 100%)",
       castMix: "multiply",
     },
+    frameShadow:
+      "inset 0 0 0 1.5px rgba(40, 40, 40, 0.7), 0 10px 22px rgba(0, 0, 0, 0.28), 0 3px 6px rgba(0, 0, 0, 0.18)",
   },
 ];
 
@@ -86,28 +90,35 @@ const LEFT_ROTATE_MS = 5600;
 const RIGHT_ROTATE_MS = 7800;
 const SCENE_ROTATE_MS = 3 * 60 * 1000;
 const CROSSFADE_MS = 1000;
-const SCENE_CROSSFADE_MS = 1400;
+/** Fade out → swap → fade in for theme changes (avoids overlay position jump) */
+const SCENE_FADE_MS = 450;
 
 const FRAME_SHADOW =
-  "inset 0 0 0 2.5px rgba(18, 14, 12, 0.92), 0 14px 28px rgba(0, 0, 0, 0.58), 0 6px 10px rgba(0, 0, 0, 0.4), 0 2px 3px rgba(0, 0, 0, 0.3)";
+  "inset 0 0 0 1.5px rgba(18, 14, 12, 0.88), 0 14px 28px rgba(0, 0, 0, 0.58), 0 6px 10px rgba(0, 0, 0, 0.4), 0 2px 3px rgba(0, 0, 0, 0.3)";
 
 const VIGNETTE =
   "radial-gradient(ellipse at center, transparent 38%, rgba(0, 0, 0, 0.18) 68%, rgba(0, 0, 0, 0.52) 100%)";
 
 function LandingNav() {
   return (
-    <header className="flex items-center justify-between px-6 py-3 bg-white">
+    <header className="flex items-center justify-between gap-3 px-6 py-3 max-md:gap-2 max-md:px-3 max-md:py-2.5 bg-white">
       <Link
         href="/"
-        className="nav-brand text-2xl md:text-3xl leading-none uppercase text-[#0a0a0a] hover:opacity-70 transition-opacity"
+        className="nav-brand min-w-0 shrink text-2xl max-md:text-sm max-md:tracking-[0.06em] max-md:whitespace-nowrap md:text-3xl leading-none uppercase text-[#0a0a0a] hover:opacity-70 transition-opacity"
       >
         Machine Dreams
       </Link>
-      <div className="flex items-center gap-3">
-        <Link href="/gallery" className="btn-nav">
+      <div className="flex shrink-0 items-center gap-3 max-md:gap-1.5">
+        <Link
+          href="/gallery"
+          className="btn-nav max-md:px-2 max-md:py-1 max-md:text-[10px] max-md:leading-none max-md:tracking-[0.04em]"
+        >
           Gallery
         </Link>
-        <Link href="/about" className="btn-nav">
+        <Link
+          href="/about"
+          className="btn-nav max-md:px-2 max-md:py-1 max-md:text-[10px] max-md:leading-none max-md:tracking-[0.04em]"
+        >
           About
         </Link>
       </div>
@@ -120,11 +131,13 @@ function FrameSlot({
   intervalMs,
   box,
   grade,
+  frameShadow = FRAME_SHADOW,
 }: {
   urls: string[];
   intervalMs: number;
   box: FrameBox;
   grade: SceneGrade;
+  frameShadow?: string;
 }) {
   const [index, setIndex] = useState(0);
 
@@ -144,7 +157,7 @@ function FrameSlot({
       className="absolute overflow-hidden"
       style={{
         ...box,
-        boxShadow: FRAME_SHADOW,
+        boxShadow: frameShadow,
       }}
       aria-hidden="true"
     >
@@ -161,8 +174,13 @@ function FrameSlot({
           <img
             src={src}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ filter: grade.filter }}
+            className="absolute inset-0 h-full w-full max-w-none object-cover object-center"
+            style={{
+              filter: grade.filter,
+              // Slight overscan so cover never leaves subpixel gaps at the frame edge
+              transform: "scale(1.02)",
+              transformOrigin: "center center",
+            }}
           />
           {/* Scene-specific ambient cast */}
           <div
@@ -185,7 +203,17 @@ function FrameSlot({
 
 export function LandingHero({ imageUrls }: { imageUrls: string[] }) {
   const [sceneIndex, setSceneIndex] = useState(0);
+  const [contentVisible, setContentVisible] = useState(true);
+  const [dotIndex, setDotIndex] = useState(0);
+  const sceneIndexRef = useRef(0);
+  const transitioningRef = useRef(false);
   const autoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fadeTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearFadeTimers = useCallback(() => {
+    fadeTimersRef.current.forEach(clearTimeout);
+    fadeTimersRef.current = [];
+  }, []);
 
   const clearAuto = useCallback(() => {
     if (autoTimerRef.current) {
@@ -194,27 +222,61 @@ export function LandingHero({ imageUrls }: { imageUrls: string[] }) {
     }
   }, []);
 
+  const transitionToScene = useCallback(
+    (next: number) => {
+      if (next === sceneIndexRef.current || transitioningRef.current) return;
+      if (next < 0 || next >= SCENES.length) return;
+
+      transitioningRef.current = true;
+      setDotIndex(next);
+      setContentVisible(false);
+
+      clearFadeTimers();
+      const t1 = setTimeout(() => {
+        sceneIndexRef.current = next;
+        setSceneIndex(next);
+
+        // Wait a frame so new coords paint while still invisible
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setContentVisible(true);
+            const t2 = setTimeout(() => {
+              transitioningRef.current = false;
+            }, SCENE_FADE_MS);
+            fadeTimersRef.current.push(t2);
+          });
+        });
+      }, SCENE_FADE_MS);
+      fadeTimersRef.current.push(t1);
+    },
+    [clearFadeTimers]
+  );
+
   const startAuto = useCallback(() => {
     clearAuto();
     autoTimerRef.current = setInterval(() => {
-      setSceneIndex((current) => {
-        if (SCENES.length <= 1) return current;
-        let next = Math.floor(Math.random() * SCENES.length);
-        if (next === current) next = (current + 1) % SCENES.length;
-        return next;
-      });
+      const current = sceneIndexRef.current;
+      if (SCENES.length <= 1) return;
+      let next = Math.floor(Math.random() * SCENES.length);
+      if (next === current) next = (current + 1) % SCENES.length;
+      transitionToScene(next);
     }, SCENE_ROTATE_MS);
-  }, [clearAuto]);
+  }, [clearAuto, transitionToScene]);
 
   useEffect(() => {
-    setSceneIndex(Math.floor(Math.random() * SCENES.length));
+    const initial = Math.floor(Math.random() * SCENES.length);
+    sceneIndexRef.current = initial;
+    setSceneIndex(initial);
+    setDotIndex(initial);
     startAuto();
-    return clearAuto;
-  }, [startAuto, clearAuto]);
+    return () => {
+      clearAuto();
+      clearFadeTimers();
+    };
+  }, [startAuto, clearAuto, clearFadeTimers]);
 
   const selectScene = (index: number) => {
-    setSceneIndex(index);
-    // Restart auto-rotate so a manual pick isn't immediately overwritten
+    transitionToScene(index);
     startAuto();
   };
 
@@ -237,42 +299,56 @@ export function LandingHero({ imageUrls }: { imageUrls: string[] }) {
       <LandingNav />
 
       <section className="relative w-full overflow-hidden bg-[#1a1612]">
-        <div className="relative w-full aspect-[1024/341]">
-          {SCENES.map((s, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={s.id}
-              src={s.src}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover transition-opacity ease-in-out"
-              style={{
-                opacity: i === sceneIndex ? 1 : 0,
-                transitionDuration: `${SCENE_CROSSFADE_MS}ms`,
-              }}
-            />
-          ))}
+        <div className="relative w-full aspect-[2172/724]">
+          {/* Preload all scenes so swaps stay sharp */}
+          <div className="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0" aria-hidden>
+            {SCENES.map((s) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={`preload-${s.id}`} src={s.src} alt="" width={2172} height={724} />
+            ))}
+          </div>
 
-          <FrameSlot
-            urls={leftUrls}
-            intervalMs={LEFT_ROTATE_MS}
-            box={scene.left}
-            grade={scene.grade}
-          />
-          <FrameSlot
-            urls={rightUrls}
-            intervalMs={RIGHT_ROTATE_MS}
-            box={scene.right}
-            grade={scene.grade}
-          />
-
-          {/* Minimal scene switcher — bottom-left, away from nav */}
+          {/* Scene + overlays fade as one unit so coords never jump while visible */}
           <div
-            className="absolute bottom-3 left-3 z-10 flex items-center gap-2 md:bottom-4 md:left-4"
+            className="absolute inset-0 transition-opacity ease-in-out"
+            style={{
+              opacity: contentVisible ? 1 : 0,
+              transitionDuration: `${SCENE_FADE_MS}ms`,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={scene.src}
+              alt=""
+              width={2172}
+              height={724}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+
+            <FrameSlot
+              urls={leftUrls}
+              intervalMs={LEFT_ROTATE_MS}
+              box={scene.left}
+              grade={scene.grade}
+              frameShadow={scene.frameShadow}
+            />
+            <FrameSlot
+              urls={rightUrls}
+              intervalMs={RIGHT_ROTATE_MS}
+              box={scene.right}
+              grade={scene.grade}
+              frameShadow={scene.frameShadow}
+            />
+          </div>
+
+          {/* Minimal scene switcher — bottom-center, readable on light & dark scenes */}
+          <div
+            className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 rounded-full bg-black/40 px-3 py-2 shadow-[0_1px_6px_rgba(0,0,0,0.35)] backdrop-blur-[2px] md:bottom-4"
             role="tablist"
             aria-label="Gallery scene"
           >
             {SCENES.map((s, i) => {
-              const active = i === sceneIndex;
+              const active = i === dotIndex;
               return (
                 <button
                   key={s.id}
@@ -281,10 +357,10 @@ export function LandingHero({ imageUrls }: { imageUrls: string[] }) {
                   aria-selected={active}
                   aria-label={s.label}
                   onClick={() => selectScene(i)}
-                  className={`block h-1.5 w-1.5 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/60 ${
+                  className={`block h-2 w-2 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.25)] transition-all duration-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/70 ${
                     active
-                      ? "bg-white/80 scale-125"
-                      : "bg-white/35 hover:bg-white/55"
+                      ? "bg-white scale-110"
+                      : "bg-white/45 hover:bg-white/70"
                   }`}
                 />
               );

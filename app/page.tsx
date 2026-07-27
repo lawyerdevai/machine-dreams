@@ -63,7 +63,7 @@ export default async function Home() {
           </div>
 
           {previewArtworks.length > 0 ? (
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 w-full md:max-w-[28rem] md:justify-self-end">
+            <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 max-md:gap-1 w-full max-md:max-w-[17.5rem] max-md:justify-self-start md:max-w-[28rem] md:justify-self-end max-md:[&>*:nth-child(n+7)]:hidden">
               {previewArtworks.map((artwork) => (
                 <Link
                   key={artwork.tokenId}
@@ -74,7 +74,7 @@ export default async function Home() {
                     src={artwork.imageUrl}
                     alt={artwork.title}
                     fill
-                    sizes="(max-width: 768px) 33vw, 112px"
+                    sizes="(max-width: 768px) 28vw, 112px"
                     className="object-cover"
                   />
                   <NormiePfpBadge src={agentImageUrl(artwork.tokenId)} />
@@ -88,10 +88,10 @@ export default async function Home() {
       {/* 02 — Works */}
       <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
-          <div className="w-full min-w-0">
+          <div className="w-full min-w-0 order-2 md:order-1">
             <DataCharGrid />
           </div>
-          <div className="flex flex-col gap-5 md:gap-6">
+          <div className="flex flex-col gap-5 md:gap-6 order-1 md:order-2">
             <div className="flex flex-col gap-2">
               <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
                 02

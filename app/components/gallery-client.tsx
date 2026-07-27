@@ -51,10 +51,19 @@ export function GalleryClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [searchInput, setSearchInput] = useState(search);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setSearchInput(search);
   }, [search]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   function replaceParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -68,6 +77,13 @@ export function GalleryClient({
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
+
+  // Lock gallery to WALL on mobile — density toggles aren't useful in one column
+  useEffect(() => {
+    if (!isMobile || view === "wall") return;
+    replaceParams({ view: "wall", page: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to viewport/view
+  }, [isMobile, view]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -94,6 +110,8 @@ export function GalleryClient({
     replaceParams({ page: next <= 1 ? null : String(next) });
   }
 
+  const effectiveView: GalleryView = isMobile ? "wall" : view;
+
   if (total === 0 && !search) {
     return (
       <main className="flex-1 px-6 pt-20 pb-12">
@@ -110,17 +128,17 @@ export function GalleryClient({
         <div className="flex flex-wrap items-center gap-3 md:gap-6">
           <button
             onClick={() => setSort("newest")}
-            className={`btn-nav text-xs ${sort === "newest" ? "bg-[#0a0a0a] text-white" : ""}`}
+            className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${sort === "newest" ? "bg-[#0a0a0a] text-white" : ""}`}
           >
             Newest
           </button>
           <button
             onClick={() => setSort("oldest")}
-            className={`btn-nav text-xs ${sort === "oldest" ? "bg-[#0a0a0a] text-white" : ""}`}
+            className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${sort === "oldest" ? "bg-[#0a0a0a] text-white" : ""}`}
           >
             Oldest
           </button>
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             {VIEW_OPTIONS.map((size) => (
               <button
                 key={size}
@@ -143,7 +161,7 @@ export function GalleryClient({
 
       {artworks.length === 0 ? (
         <p className={TYPE.status}>no matching artworks.</p>
-      ) : view === "wall" ? (
+      ) : effectiveView === "wall" ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-1">
           {artworks.map((artwork) => (
             <Link
@@ -171,7 +189,7 @@ export function GalleryClient({
           ))}
         </div>
       ) : (
-        <div className={`grid ${GALLERY_VIEW_GRID[view]}`}>
+        <div className={`grid ${GALLERY_VIEW_GRID[effectiveView]}`}>
           {artworks.map((artwork) => (
             <Link
               key={artwork.tokenId}
@@ -183,7 +201,7 @@ export function GalleryClient({
                   src={artwork.imageUrl}
                   alt={artwork.title}
                   fill
-                  sizes={GALLERY_IMAGE_SIZES[view]}
+                  sizes={GALLERY_IMAGE_SIZES[effectiveView]}
                   className="object-cover"
                 />
               </div>
@@ -199,7 +217,7 @@ export function GalleryClient({
         </div>
       )}
 
-      {view !== "wall" && (
+      {effectiveView !== "wall" && (
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
