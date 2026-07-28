@@ -1,6 +1,8 @@
 import { Redis } from "@upstash/redis";
+import { withArtworkDefaults, matchesArtworkCategory } from "./artworks";
 import {
   matchesGallerySearch,
+  type GalleryCategory,
   type GallerySort,
 } from "./gallery";
 import type { Artwork } from "./types";
@@ -85,13 +87,13 @@ export async function getArtwork(tokenId: string): Promise<Artwork | null> {
   await ensureMigration();
   const data = await redis.get<Artwork>(artworkKey(tokenId));
   if (!data || isExpired(data)) return null;
-  return data;
+  return withArtworkDefaults(data);
 }
 
 export async function getArtworkRaw(tokenId: string): Promise<Artwork | null> {
   await ensureMigration();
   const data = await redis.get<Artwork>(artworkKey(tokenId));
-  return data ?? null;
+  return data ? withArtworkDefaults(data) : null;
 }
 
 export async function saveArtwork(artwork: Artwork): Promise<void> {
@@ -128,7 +130,7 @@ async function mgetArtworks(tokenIds: string[]): Promise<Artwork[]> {
     const chunk = keys.slice(i, i + chunkSize);
     const batch = await redis.mget<(Artwork | null)[]>(...chunk);
     for (const record of batch) {
-      if (record) artworks.push(record);
+      if (record) artworks.push(withArtworkDefaults(record));
     }
   }
 
@@ -140,11 +142,13 @@ export async function getGalleryArtworks({
   perPage,
   sort,
   search = "",
+  category = "all",
 }: {
   page: number;
   perPage: number;
   sort: GallerySort;
   search?: string;
+  category?: GalleryCategory;
 }): Promise<GalleryArtworksResult> {
   await ensureMigration();
 
@@ -161,6 +165,10 @@ export async function getGalleryArtworks({
       typeof a.imageUrl === "string" &&
       a.imageUrl.trim().length > 0
   );
+
+  if (category !== "all") {
+    artworks = artworks.filter((a) => matchesArtworkCategory(a, category));
+  }
 
   if (search.trim()) {
     artworks = artworks.filter((a) => matchesGallerySearch(a, search));
@@ -255,7 +263,9 @@ export async function getAllArtworks(): Promise<Artwork[]> {
   const artworks = await Promise.all(
     tokenIds.map((id) => redis.get<Artwork>(artworkKey(String(id))))
   );
-  return artworks.filter((a): a is Artwork => a !== null);
+  return artworks
+    .filter((a): a is Artwork => a !== null)
+    .map(withArtworkDefaults);
 }
 
 export async function getValidArtworks(): Promise<Artwork[]> {
@@ -279,6 +289,7 @@ export async function getAllArchivedArtworks(): Promise<Artwork[]> {
 
   return artworks
     .filter((a): a is Artwork => a !== null)
+    .map(withArtworkDefaults)
     .sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

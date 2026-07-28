@@ -1,5 +1,6 @@
 export type GalleryView = "small" | "medium" | "large" | "wall";
 export type GallerySort = "newest" | "oldest";
+export type GalleryCategory = "all" | "normie" | "data-medium" | "agentic";
 
 export const GALLERY_PAGE_SIZE: Record<GalleryView, number> = {
   small: 48,
@@ -22,6 +23,20 @@ export function parseGalleryView(value: string | null | undefined): GalleryView 
 
 export function parseGallerySort(value: string | null | undefined): GallerySort {
   return value === "oldest" ? "oldest" : "newest";
+}
+
+export function parseGalleryCategory(
+  value: string | null | undefined
+): GalleryCategory {
+  if (
+    value === "all" ||
+    value === "normie" ||
+    value === "data-medium" ||
+    value === "agentic"
+  ) {
+    return value;
+  }
+  return "all";
 }
 
 export function parseGalleryPage(value: string | null | undefined): number {

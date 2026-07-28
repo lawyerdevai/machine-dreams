@@ -1,6 +1,7 @@
 import { GalleryClient } from "@/app/components/gallery-client";
 import {
   GALLERY_PAGE_SIZE,
+  parseGalleryCategory,
   parseGalleryPage,
   parseGallerySort,
   parseGalleryView,
@@ -16,11 +17,13 @@ export default async function GalleryPage({
     page?: string;
     sort?: string;
     q?: string;
+    category?: string;
   }>;
 }) {
   const params = await searchParams;
   const view = parseGalleryView(params.view);
   const sort = parseGallerySort(params.sort);
+  const category = parseGalleryCategory(params.category);
   const page = parseGalleryPage(params.page);
   const search = params.q ?? "";
   const perPage = GALLERY_PAGE_SIZE[view];
@@ -30,6 +33,7 @@ export default async function GalleryPage({
     perPage,
     sort,
     search,
+    category,
   });
 
   return (
@@ -47,6 +51,7 @@ export default async function GalleryPage({
         totalPages={result.totalPages}
         view={view}
         sort={sort}
+        category={category}
         search={search}
       />
     </Suspense>

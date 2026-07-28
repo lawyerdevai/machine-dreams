@@ -5,7 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AgentTokenLine, TileTitle } from "@/app/components/typography";
-import { type GallerySort, type GalleryView } from "@/lib/gallery";
+import {
+  type GalleryCategory,
+  type GallerySort,
+  type GalleryView,
+} from "@/lib/gallery";
 import { lowercaseName, uppercaseTitle } from "@/lib/format";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
@@ -28,6 +32,13 @@ const GALLERY_IMAGE_SIZES: Record<Exclude<GalleryView, "wall">, string> = {
 
 const VIEW_OPTIONS = ["small", "medium", "large", "wall"] as const;
 
+const CATEGORY_OPTIONS: { value: GalleryCategory; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "normie", label: "Normies" },
+  { value: "data-medium", label: "Data as Medium" },
+  { value: "agentic", label: "Agentic" },
+];
+
 interface GalleryClientProps {
   artworks: Artwork[];
   total: number;
@@ -35,6 +46,7 @@ interface GalleryClientProps {
   totalPages: number;
   view: GalleryView;
   sort: GallerySort;
+  category: GalleryCategory;
   search: string;
 }
 
@@ -45,6 +57,7 @@ export function GalleryClient({
   totalPages,
   view,
   sort,
+  category,
   search,
 }: GalleryClientProps) {
   const router = useRouter();
@@ -106,13 +119,22 @@ export function GalleryClient({
     replaceParams({ sort: next === "newest" ? null : next, page: null });
   }
 
+  function setCategory(next: GalleryCategory) {
+    if (next === category) return;
+    replaceParams({
+      category: next === "all" ? null : next,
+      page: null,
+    });
+  }
+
   function setPage(next: number) {
     replaceParams({ page: next <= 1 ? null : String(next) });
   }
 
   const effectiveView: GalleryView = isMobile ? "wall" : view;
+  const trulyEmpty = total === 0 && !search && category === "all";
 
-  if (total === 0 && !search) {
+  if (trulyEmpty) {
     return (
       <main className="flex-1 px-6 pt-20 pb-12">
         <h1 className="page-title uppercase text-2xl mb-10">Gallery</h1>
@@ -126,6 +148,20 @@ export function GalleryClient({
       <div className="flex flex-col gap-4 mb-10 md:flex-row md:items-center md:justify-between">
         <h1 className="page-title uppercase text-2xl shrink-0">Gallery</h1>
         <div className="flex flex-wrap items-center gap-3 md:gap-6">
+          <div className="flex max-w-full flex-wrap items-center gap-2">
+            {CATEGORY_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setCategory(value)}
+                className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${
+                  category === value ? "bg-[#0a0a0a] text-white" : ""
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setSort("newest")}
             className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${sort === "newest" ? "bg-[#0a0a0a] text-white" : ""}`}
@@ -160,7 +196,9 @@ export function GalleryClient({
       </div>
 
       {artworks.length === 0 ? (
-        <p className={TYPE.status}>no matching artworks.</p>
+        <p className={TYPE.status}>
+          {search ? "no matching artworks." : "no artworks yet."}
+        </p>
       ) : effectiveView === "wall" ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-1">
           {artworks.map((artwork) => (

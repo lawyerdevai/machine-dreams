@@ -1,3 +1,5 @@
+export type ArtworkCategory = "normie" | "data-medium" | "agentic";
+
 export interface Artwork {
   tokenId: string;
   agentName: string;
@@ -10,6 +12,8 @@ export interface Artwork {
   createdAt: string;
   mintedAt: string | null;
   imageExpired?: boolean;
+  /** Collection bucket; missing on legacy Redis records — defaulted at read-time. */
+  category?: ArtworkCategory;
 }
 
 export interface AgentInfo {

@@ -1,4 +1,5 @@
 import type { Artwork } from "./types";
+import type { GalleryCategory } from "./gallery";
 import { getAgentInfo } from "./normies";
 
 export type SortOption = "newest" | "oldest";
@@ -9,20 +10,38 @@ export interface EnrichedArtwork extends Artwork {
   agentLevel: number;
 }
 
+/** Read-time defaults for legacy Redis records (no data migration). */
+export function withArtworkDefaults(artwork: Artwork): Artwork {
+  return {
+    ...artwork,
+    category: artwork.category ?? "normie",
+  };
+}
+
+export function matchesArtworkCategory(
+  artwork: Artwork,
+  category: GalleryCategory
+): boolean {
+  if (category === "all") return true;
+  return (artwork.category ?? "normie") === category;
+}
+
 export async function enrichArtwork(artwork: Artwork): Promise<EnrichedArtwork> {
-  if (artwork.agentType) {
+  const base = withArtworkDefaults(artwork);
+
+  if (base.agentType) {
     return {
-      ...artwork,
-      agentType: artwork.agentType,
-      agentLevel: artwork.agentLevel ?? 1,
+      ...base,
+      agentType: base.agentType,
+      agentLevel: base.agentLevel ?? 1,
     };
   }
 
-  const info = await getAgentInfo(artwork.tokenId);
+  const info = await getAgentInfo(base.tokenId);
   const canvas = info?.canvas as { level?: number } | undefined;
 
   return {
-    ...artwork,
+    ...base,
     agentType: info?.type ?? "Unknown",
     agentLevel: canvas?.level ?? 1,
   };
@@ -36,13 +55,22 @@ export async function enrichArtworks(
 
 export function filterArtworks(
   artworks: EnrichedArtwork[],
-  { search }: { search: string }
+  {
+    search,
+    category = "all",
+  }: { search: string; category?: GalleryCategory }
 ): EnrichedArtwork[] {
-  if (!search.trim()) return artworks;
+  let result = artworks;
+
+  if (category !== "all") {
+    result = result.filter((a) => matchesArtworkCategory(a, category));
+  }
+
+  if (!search.trim()) return result;
 
   const q = search.trim().toLowerCase();
   const tokenQuery = q.replace(/^#/, "");
-  return artworks.filter(
+  return result.filter(
     (a) =>
       (a.agentName ?? "").toLowerCase().includes(q) ||
       a.tokenId.toLowerCase().includes(tokenQuery)
