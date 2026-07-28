@@ -12,7 +12,9 @@ export function Nav() {
 
   return (
     <header
-      className={`flex items-center px-6 py-4 bg-white ${onGallery ? "justify-end" : "justify-between"}`}
+      className={`flex items-center px-6 bg-white ${
+        onGallery ? "justify-end py-2" : "justify-between py-4"
+      }`}
     >
       {!onGallery && (
         <Link

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AgentTokenLine, TileTitle } from "@/app/components/typography";
 import {
   type GalleryCategory,
   type GallerySort,
@@ -15,22 +14,15 @@ import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 import { Pagination } from "./filter-bar";
 
-const GALLERY_VIEW_GRID: Record<
-  Exclude<GalleryView, "wall">,
-  string
-> = {
-  large: "grid-cols-2 md:grid-cols-4 gap-6",
-  medium: "grid-cols-3 md:grid-cols-5 gap-5",
-  small: "grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4",
-};
+/** Default grid: one step denser than the old medium view (3/5 → 4/6). */
+const GALLERY_GRID_CLASS =
+  "grid-cols-4 md:grid-cols-6 gap-5 md:gap-6";
+const GALLERY_GRID_IMAGE_SIZES = "(max-width: 768px) 25vw, 16vw";
 
-const GALLERY_IMAGE_SIZES: Record<Exclude<GalleryView, "wall">, string> = {
-  large: "(max-width: 768px) 50vw, 25vw",
-  medium: "(max-width: 768px) 33vw, 20vw",
-  small: "(max-width: 768px) 25vw, 12vw",
-};
-
-const VIEW_OPTIONS = ["small", "medium", "large", "wall"] as const;
+const VIEW_OPTIONS: { value: GalleryView; label: string }[] = [
+  { value: "grid", label: "Grid" },
+  { value: "wall", label: "Wall" },
+];
 
 const CATEGORY_OPTIONS: { value: GalleryCategory; label: string }[] = [
   { value: "all", label: "All" },
@@ -109,7 +101,7 @@ export function GalleryClient({
   function setView(next: GalleryView) {
     if (next === view) return;
     replaceParams({
-      view: next === "large" ? null : next,
+      view: next === "grid" ? null : next,
       page: null,
     });
   }
@@ -136,52 +128,60 @@ export function GalleryClient({
 
   if (trulyEmpty) {
     return (
-      <main className="flex-1 px-6 pt-20 pb-12">
-        <h1 className="page-title uppercase text-2xl mb-10">Gallery</h1>
+      <main className="flex-1 px-6 pt-2 pb-12">
+        <h1 className="page-title uppercase text-2xl mb-6">Gallery</h1>
         <p className={TYPE.status}>no artworks yet.</p>
       </main>
     );
   }
 
   return (
-    <main className="flex-1 px-6 pt-20 pb-12">
-      <div className="flex flex-col gap-4 mb-10 md:flex-row md:items-center md:justify-between">
+    <main className="flex-1 px-6 pt-2 pb-12">
+      <div className="flex flex-col gap-3 mb-6 md:flex-row md:items-center md:justify-between">
         <h1 className="page-title uppercase text-2xl shrink-0">Gallery</h1>
         <div className="flex flex-wrap items-center gap-3 md:gap-6">
-          <div className="flex max-w-full flex-wrap items-center gap-2">
-            {CATEGORY_OPTIONS.map(({ value, label }) => (
+          {/* Hidden until multiple real categories ship — flip to true to restore. */}
+          {false && (
+            <>
+              <div className="flex max-w-full flex-wrap items-center gap-2">
+                {CATEGORY_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setCategory(value)}
+                    className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${
+                      category === value ? "bg-[#0a0a0a] text-white" : ""
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSort("newest")}
+                className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${sort === "newest" ? "bg-[#0a0a0a] text-white" : ""}`}
+              >
+                Newest
+              </button>
+              <button
+                type="button"
+                onClick={() => setSort("oldest")}
+                className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${sort === "oldest" ? "bg-[#0a0a0a] text-white" : ""}`}
+              >
+                Oldest
+              </button>
+            </>
+          )}
+          <div className="hidden items-center gap-2 md:flex">
+            {VIEW_OPTIONS.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
-                onClick={() => setCategory(value)}
-                className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${
-                  category === value ? "bg-[#0a0a0a] text-white" : ""
-                }`}
+                onClick={() => setView(value)}
+                className={`btn-nav text-xs ${view === value ? "bg-[#0a0a0a] text-white" : ""}`}
               >
                 {label}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => setSort("newest")}
-            className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${sort === "newest" ? "bg-[#0a0a0a] text-white" : ""}`}
-          >
-            Newest
-          </button>
-          <button
-            onClick={() => setSort("oldest")}
-            className={`btn-nav text-xs max-md:px-2.5 max-md:py-1.5 ${sort === "oldest" ? "bg-[#0a0a0a] text-white" : ""}`}
-          >
-            Oldest
-          </button>
-          <div className="hidden items-center gap-2 md:flex">
-            {VIEW_OPTIONS.map((size) => (
-              <button
-                key={size}
-                onClick={() => setView(size)}
-                className={`btn-nav text-xs ${view === size ? "bg-[#0a0a0a] text-white" : ""}`}
-              >
-                {size}
               </button>
             ))}
           </div>
@@ -227,28 +227,24 @@ export function GalleryClient({
           ))}
         </div>
       ) : (
-        <div className={`grid ${GALLERY_VIEW_GRID[effectiveView]}`}>
+        <div className={`grid ${GALLERY_GRID_CLASS}`}>
           {artworks.map((artwork) => (
             <Link
               key={artwork.tokenId}
               href={`/artwork/${artwork.tokenId}`}
-              className="group border border-[#0a0a0a] transition-transform duration-200 hover:scale-[1.02]"
+              className="group relative aspect-square overflow-hidden bg-[#0a0a0a]"
             >
-              <div className="relative aspect-square w-full overflow-hidden">
-                <Image
-                  src={artwork.imageUrl}
-                  alt={artwork.title}
-                  fill
-                  sizes={GALLERY_IMAGE_SIZES[effectiveView]}
-                  className="object-cover"
-                />
-              </div>
-              <div className="p-3 flex flex-col gap-1">
-                <TileTitle title={artwork.title} />
-                <AgentTokenLine
-                  name={artwork.agentName}
-                  tokenId={artwork.tokenId}
-                />
+              <Image
+                src={artwork.imageUrl}
+                alt={artwork.title}
+                fill
+                sizes={GALLERY_GRID_IMAGE_SIZES}
+                className="object-cover"
+              />
+              <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/70 p-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 md:p-2.5">
+                <span className="truncate font-serif text-xs uppercase leading-tight tracking-wide text-white">
+                  {uppercaseTitle(artwork.title)}
+                </span>
               </div>
             </Link>
           ))}

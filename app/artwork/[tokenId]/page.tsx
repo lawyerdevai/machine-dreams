@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getArtwork, getIntro } from "@/lib/redis";
 import { ArtworkPageClient } from "@/app/components/artwork-page-client";
+import { getAgentInfo } from "@/lib/normies";
+import { getArtwork, getIntro } from "@/lib/redis";
 
 export default async function ArtworkPage({
   params,
@@ -15,9 +16,16 @@ export default async function ArtworkPage({
 
   if (!artwork) notFound();
 
+  // Prefer Redis intro (agent voice); fall back to API backstory when uncached.
+  let aboutBio = intro?.trim() || null;
+  if (!aboutBio) {
+    const info = await getAgentInfo(tokenId);
+    aboutBio = info?.backstory?.trim() || null;
+  }
+
   return (
-    <main className="flex-1 px-6 py-12 bg-white">
-      <ArtworkPageClient artwork={artwork} intro={intro} />
+    <main className="flex flex-1 flex-col bg-white">
+      <ArtworkPageClient artwork={artwork} aboutBio={aboutBio} />
     </main>
   );
 }

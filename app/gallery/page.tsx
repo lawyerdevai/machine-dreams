@@ -39,8 +39,8 @@ export default async function GalleryPage({
   return (
     <Suspense
       fallback={
-        <main className="flex-1 px-6 pt-20 pb-12">
-          <h1 className="page-title uppercase text-2xl mb-10">Gallery</h1>
+        <main className="flex-1 px-6 pt-2 pb-12">
+          <h1 className="page-title uppercase text-2xl mb-6">Gallery</h1>
         </main>
       }
     >

@@ -1,24 +1,16 @@
-export type GalleryView = "small" | "medium" | "large" | "wall";
+export type GalleryView = "grid" | "wall";
 export type GallerySort = "newest" | "oldest";
 export type GalleryCategory = "all" | "normie" | "data-medium" | "agentic";
 
 export const GALLERY_PAGE_SIZE: Record<GalleryView, number> = {
-  small: 48,
-  medium: 24,
-  large: 12,
+  grid: 36,
   wall: Number.MAX_SAFE_INTEGER,
 };
 
 export function parseGalleryView(value: string | null | undefined): GalleryView {
-  if (
-    value === "small" ||
-    value === "medium" ||
-    value === "large" ||
-    value === "wall"
-  ) {
-    return value;
-  }
-  return "large";
+  if (value === "wall") return "wall";
+  // Default is grid; legacy small/medium/large query values map to grid
+  return "grid";
 }
 
 export function parseGallerySort(value: string | null | undefined): GallerySort {

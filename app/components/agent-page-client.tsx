@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   AgentName,
   ArtworkTitle,
@@ -142,7 +143,7 @@ function DreamingStatus() {
   );
 }
 
-/** Left column — pixel-identical to /artwork/[tokenId] */
+/** Left column — agent PFP + intro */
 function AgentLeftColumn({
   tokenId,
   agentName,
@@ -185,34 +186,24 @@ function AgentLeftColumn({
   );
 }
 
-/** Right column STATE 2 — pixel-identical to /artwork/[tokenId] */
-function ArtworkRightColumn({
-  title,
-  imageUrl,
-  artistStatement,
-  createdAt,
-}: {
-  title: string;
-  imageUrl: string;
-  artistStatement: string;
-  createdAt: string;
-}) {
+/** When a work already exists: stay on the agent page, link out to catalog detail */
+function AgentArtworkLink({ artwork }: { artwork: Artwork }) {
   return (
-    <div className="flex flex-col gap-6">
-      <ArtworkTitle title={title} />
-      <div className={IMAGE_FRAME}>
-        <img
-          src={imageUrl}
-          alt={title}
-          className="w-full h-full object-contain"
-        />
-      </div>
-      <div className="flex flex-col gap-3">
-        <SectionLabel>Artist Statement</SectionLabel>
-        <div className="h-px bg-[#0a0a0a] w-full" />
-        <ProseSm>{sentenceCase(artistStatement)}</ProseSm>
-        <CreatedDate iso={createdAt} />
-      </div>
+    <div className="flex flex-col gap-6 min-h-[40vh]">
+      <Link
+        href={`/artwork/${artwork.tokenId}`}
+        className="group flex flex-col gap-6 transition-opacity hover:opacity-85"
+      >
+        <div className={IMAGE_FRAME}>
+          <img
+            src={artwork.imageUrl}
+            alt={artwork.title}
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <ArtworkTitle title={artwork.title} />
+        <span className="btn-nav self-start w-fit">View artwork</span>
+      </Link>
     </div>
   );
 }
@@ -249,12 +240,7 @@ export function AgentPageClient({
       />
 
       {artwork ? (
-        <ArtworkRightColumn
-          title={artwork.title}
-          imageUrl={artwork.imageUrl}
-          artistStatement={artwork.artistStatement}
-          createdAt={artwork.createdAt}
-        />
+        <AgentArtworkLink artwork={artwork} />
       ) : expiredArtwork ? (
         <ExpiredRightColumn
           agent={agent}
@@ -362,10 +348,6 @@ function DiscoveryRightColumn({
   const [creationFailed, setCreationFailed] = useState(false);
   const questionShown = useRef(false);
 
-  const [title, setTitle] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [artistStatement, setArtistStatement] = useState("");
-  const [createdAt, setCreatedAt] = useState("");
   const [showQuestion, setShowQuestion] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -388,10 +370,6 @@ function DiscoveryRightColumn({
     setPhase("creating");
     setShowCreate(false);
     setShowQuestion(false);
-    setImageUrl(null);
-    setTitle("");
-    setArtistStatement("");
-    setCreatedAt("");
 
     try {
       const res = await fetch("/api/create", {
@@ -417,11 +395,8 @@ function DiscoveryRightColumn({
 
       await consumeSSE(res, (event) => {
         if (event.type === "complete") {
-          setTitle(event.title as string);
-          setArtistStatement(event.artistStatement as string);
-          setImageUrl(event.imageUrl as string);
-          setCreatedAt(event.createdAt as string);
-          setPhase("complete");
+          // Hand off to the catalog artwork detail (single design in use)
+          window.location.assign(`/artwork/${agent.tokenId}`);
         } else if (event.type === "error") {
           throw new Error("creation_failed");
         }
@@ -434,43 +409,29 @@ function DiscoveryRightColumn({
     }
   }, [agent.tokenId]);
 
-  const isComplete =
-    phase === "complete" && title && imageUrl && artistStatement && createdAt;
-
   return (
     <div className="flex flex-col gap-6 min-h-[40vh]">
-      {isComplete ? (
-        <ArtworkRightColumn
-          title={title}
-          imageUrl={imageUrl}
-          artistStatement={artistStatement}
-          createdAt={createdAt}
-        />
-      ) : (
-        <>
-          {showQuestion && (phase === "question" || phase === "ready") && (
-            <p className={`${TYPE.proseSm} text-[#666] fade-in`}>
-              If you had one canvas — what would you create?
-            </p>
-          )}
+      {showQuestion && (phase === "question" || phase === "ready") && (
+        <p className={`${TYPE.proseSm} text-[#666] fade-in`}>
+          If you had one canvas — what would you create?
+        </p>
+      )}
 
-          {showCreate && phase === "ready" && (
-            <button
-              onClick={handleCreate}
-              className="btn-minimal self-start fade-in"
-            >
-              Create
-            </button>
-          )}
+      {showCreate && phase === "ready" && (
+        <button
+          onClick={handleCreate}
+          className="btn-minimal self-start fade-in"
+        >
+          Create
+        </button>
+      )}
 
-          {phase === "creating" && <DreamingStatus />}
+      {phase === "creating" && <DreamingStatus />}
 
-          {creationFailed && (
-            <p className={`${TYPE.proseSm} text-[#dc2626]`}>
-              {ARTWORK_CREATION_USER_MESSAGE}
-            </p>
-          )}
-        </>
+      {creationFailed && (
+        <p className={`${TYPE.proseSm} text-[#dc2626]`}>
+          {ARTWORK_CREATION_USER_MESSAGE}
+        </p>
       )}
 
       {introError && <p className={TYPE.statusError}>{introError}</p>}
