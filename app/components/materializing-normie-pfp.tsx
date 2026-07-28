@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const GRID = 8;
 const DURATION_MS = 750;
@@ -18,7 +18,6 @@ function buildCells(): Cell[] {
   for (let i = 0; i < GRID * GRID; i++) {
     cells.push({
       id: i,
-      // Staggered resolve — random order, not a wipe
       delay: Math.random() * (DURATION_MS - FLICKER_MS),
       tone: tones[Math.floor(Math.random() * tones.length)]!,
     });
@@ -33,31 +32,59 @@ function buildCells(): Cell[] {
 export function MaterializingNormiePfp({
   src,
   sizeClass = "h-16 w-16 md:h-[4.5rem] md:w-[4.5rem]",
+  active = true,
+  onComplete,
 }: {
   src: string;
   sizeClass?: string;
+  /** When false, stays blank until activated (for staged reveals). */
+  active?: boolean;
+  onComplete?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
-  const [phase, setPhase] = useState<"scramble" | "resolve" | "done">("scramble");
+  const [phase, setPhase] = useState<"idle" | "scramble" | "resolve" | "done">(
+    "idle"
+  );
   const [flickerTick, setFlickerTick] = useState(0);
   const cells = useMemo(() => buildCells(), []);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  const completed = useRef(false);
 
   useEffect(() => {
+    if (!active) return;
+
+    let cancelled = false;
+    completed.current = false;
+
     const reduce =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       setPhase("done");
+      if (!cancelled) onCompleteRef.current?.();
       return;
     }
 
-    const resolveTimer = window.setTimeout(() => setPhase("resolve"), FLICKER_MS);
-    const doneTimer = window.setTimeout(() => setPhase("done"), DURATION_MS);
+    setPhase("scramble");
+    const resolveTimer = window.setTimeout(() => {
+      if (!cancelled) setPhase("resolve");
+    }, FLICKER_MS);
+    const doneTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      setPhase("done");
+      if (!completed.current) {
+        completed.current = true;
+        onCompleteRef.current?.();
+      }
+    }, DURATION_MS);
+
     return () => {
+      cancelled = true;
       window.clearTimeout(resolveTimer);
       window.clearTimeout(doneTimer);
     };
-  }, []);
+  }, [active]);
 
   useEffect(() => {
     if (phase !== "scramble") return;
@@ -66,6 +93,9 @@ export function MaterializingNormiePfp({
   }, [phase]);
 
   if (failed) return null;
+  if (!active && phase === "idle") {
+    return <span className={`block shrink-0 ${sizeClass}`} aria-hidden />;
+  }
 
   const tones = ["#0a0a0a", "#2a2a2a", "#666666", "#c8c8c8", "#e8e8e8", "#f5f5f5"];
 
@@ -82,12 +112,12 @@ export function MaterializingNormiePfp({
         }`}
         onError={() => setFailed(true)}
       />
-      {phase !== "done" ? (
+      {phase !== "done" && phase !== "idle" ? (
         <span
-          className="pointer-events-none absolute inset-0 grid"
+          className="pointer-events-none absolute inset-0 grid h-full w-full"
           style={{
-            gridTemplateColumns: `repeat(${GRID}, 1fr)`,
-            gridTemplateRows: `repeat(${GRID}, 1fr)`,
+            gridTemplateColumns: `repeat(${GRID}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${GRID}, minmax(0, 1fr))`,
           }}
           aria-hidden
         >
@@ -96,17 +126,17 @@ export function MaterializingNormiePfp({
               phase === "scramble"
                 ? tones[(cell.id + flickerTick) % tones.length]!
                 : cell.tone;
-            const clear = phase === "resolve";
             return (
               <span
                 key={cell.id}
-                className="block"
+                className="min-h-0 min-w-0"
                 style={{
                   backgroundColor: flickerTone,
-                  opacity: clear ? 0 : 1,
-                  transition: clear
-                    ? `opacity 160ms ease-out ${cell.delay}ms`
-                    : undefined,
+                  opacity: phase === "resolve" ? 0 : 1,
+                  transition:
+                    phase === "resolve"
+                      ? `opacity 160ms ease-out ${cell.delay}ms`
+                      : undefined,
                 }}
               />
             );

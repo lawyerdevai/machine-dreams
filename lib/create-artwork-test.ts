@@ -1,0 +1,136 @@
+import "server-only";
+
+/**
+ * Sandbox artwork generation — preview only.
+ *
+ * GUARANTEE: This module never imports or calls saveArtwork, persistImageToBlob,
+ * getArtworkRaw, or any other Redis/blob write. Image URLs are temporary
+ * Replicate URLs and are not uploaded to Vercel Blob.
+ */
+
+import { anthropic, generateImage, parseClaudeJson } from "@/lib/ai";
+import { ARTWORK_CREATION_ERROR_CODE } from "@/lib/artwork-creation-messages";
+import { getAgentInfo, getBurnHistory } from "@/lib/normies";
+import type { CreationPayload } from "@/lib/types";
+
+export class TestArtworkCreationError extends Error {
+  readonly code = ARTWORK_CREATION_ERROR_CODE;
+
+  constructor() {
+    super(ARTWORK_CREATION_ERROR_CODE);
+    this.name = "TestArtworkCreationError";
+  }
+}
+
+export type TestCreateArtworkResult = {
+  tokenId: string;
+  agentName: string;
+  title: string;
+  artistStatement: string;
+  /** Temporary Replicate URL — not persisted to blob or Redis */
+  imageUrl: string;
+  createdAt: string;
+  /** Agent backstory for About accordion preview (read-only API field) */
+  aboutBio: string | null;
+};
+
+function buildCreateUserMessage(
+  burnHistory: unknown[],
+  mintTraits: Record<string, unknown>
+): string {
+  return `You are creating a single artwork on one canvas.
+
+Identity context (this is part of who you are, not a checklist to depict): your mint traits — ${JSON.stringify(mintTraits)} — and your on-chain activity — ${JSON.stringify(burnHistory)}.
+
+Do not limit yourself to any particular aesthetic, medium, or style.
+
+The title, what you create, and how you describe it must be specific to who you are — your name, your history, your worldview. Nothing generic. Another agent should never produce the same title or the same work. In your imagePrompt, be specific about the physical medium, texture, and rendering style — not just the subject. If your work is a self-portrait, render it in a distinctly artistic medium — never as photorealistic photography. Self-portraits should be the exception, not the default — most agents express themselves through other subjects, objects, or abstractions entirely.
+
+There is no restriction on style or medium — anything genuinely fitting your identity is welcome. The only thing to avoid is output that reads as generic AI filler: crisp, clean studio-photography-style 3D renders of objects, sculptures, or architecture floating in empty space, and photorealistic human headshots. Aim for something that looks intentionally made and worth sharing, not something a machine produced by default.
+
+Describe a single artistic medium applied to one surface that IS the artwork itself — a drawing, a painting, a print, a woven piece, a pixel composition — and let it fill the frame. Do NOT describe the work as a collage, board, wall, or arrangement of multiple real-world objects (such as torn photographs, receipts, sticky notes, handwritten notes pinned together, red thread, or signage on wood); these read as photographs of a cluttered surface rather than a singular artwork.
+
+The imagePrompt must never include nudity, sexual content, graphic violence, gore, hate symbols, or other content that would violate standard content moderation policy. Choose a different subject or composition if your initial impulse trends in that direction.
+
+Respond with JSON only:
+{
+  "title": "short evocative title, 3-5 words max, no quotes",
+  "imagePrompt": "detailed image generation prompt for Replicate",
+  "artistStatement": "3 sentences in past tense, gallery-card style reflecting on the completed work"
+}`;
+}
+
+function parseCreationPayload(text: string): CreationPayload {
+  try {
+    const parsed = parseClaudeJson<CreationPayload>(text);
+    if (
+      !parsed.title?.trim() ||
+      !parsed.imagePrompt?.trim() ||
+      !parsed.artistStatement?.trim()
+    ) {
+      throw new TestArtworkCreationError();
+    }
+    return parsed;
+  } catch (err) {
+    if (err instanceof TestArtworkCreationError) throw err;
+    throw new TestArtworkCreationError();
+  }
+}
+
+/**
+ * Generate a full artwork preview for an awakened token without reading or
+ * writing Redis artwork records. Does not call saveArtwork or persistImageToBlob.
+ */
+export async function createArtworkTestPreview(
+  tokenId: string
+): Promise<TestCreateArtworkResult> {
+  try {
+    const [agentInfo, burnHistory] = await Promise.all([
+      getAgentInfo(tokenId),
+      getBurnHistory(tokenId),
+    ]);
+
+    if (!agentInfo) {
+      throw new Error("Agent not found");
+    }
+
+    const mintTraits =
+      (agentInfo.traits as { attributes?: Record<string, unknown> } | undefined)
+        ?.attributes ?? {};
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 2048,
+      system: agentInfo.systemPrompt ?? "",
+      messages: [
+        {
+          role: "user",
+          content: buildCreateUserMessage(burnHistory, mintTraits),
+        },
+      ],
+    });
+
+    const text =
+      message.content[0].type === "text" ? message.content[0].text : "";
+    const parsed = parseCreationPayload(text);
+
+    // Temporary provider URL only — never uploaded to blob storage
+    const imageUrl = await generateImage(parsed.imagePrompt);
+
+    return {
+      tokenId,
+      agentName: agentInfo.name,
+      title: parsed.title,
+      artistStatement: parsed.artistStatement,
+      imageUrl,
+      createdAt: new Date().toISOString(),
+      aboutBio: agentInfo.backstory?.trim() || null,
+    };
+  } catch (err) {
+    if (err instanceof Error && err.message === "Agent not found") {
+      throw err;
+    }
+    if (err instanceof TestArtworkCreationError) throw err;
+    throw new TestArtworkCreationError();
+  }
+}

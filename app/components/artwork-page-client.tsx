@@ -142,10 +142,13 @@ function SaveCardLink({ artwork, pfpSrc }: { artwork: Artwork; pfpSrc: string })
 export function ArtworkPageClient({
   artwork,
   aboutBio = null,
+  previewMode = false,
 }: {
   artwork: Artwork;
   /** Agent voice bio from Redis intro, or API backstory fallback. */
   aboutBio?: string | null;
+  /** Sandbox / test preview — hide mint, save card, ownership */
+  previewMode?: boolean;
 }) {
   const pfpSrc = agentImageUrl(artwork.tokenId);
   const aboutLabel = `About ${lowercaseName(artwork.agentName)}`;
@@ -200,10 +203,14 @@ export function ArtworkPageClient({
               </CatalogAccordion>
             ) : null}
 
-            <OwnershipMintBlock
-              artwork={artwork}
-              shareControl={<SaveCardLink artwork={artwork} pfpSrc={pfpSrc} />}
-            />
+            {!previewMode ? (
+              <OwnershipMintBlock
+                artwork={artwork}
+                shareControl={
+                  <SaveCardLink artwork={artwork} pfpSrc={pfpSrc} />
+                }
+              />
+            ) : null}
           </div>
         </div>
       </div>
