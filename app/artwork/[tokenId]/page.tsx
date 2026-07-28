@@ -5,10 +5,16 @@ import { getArtwork, getIntro } from "@/lib/redis";
 
 export default async function ArtworkPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tokenId: string }>;
+  searchParams: Promise<{ justCreated?: string; debugRegenerate?: string }>;
 }) {
   const { tokenId } = await params;
+  const { justCreated, debugRegenerate } = await searchParams;
+  const playReveal = justCreated === "true";
+  const showDebugRegenerate = debugRegenerate === "true";
+
   const [artwork, intro] = await Promise.all([
     getArtwork(tokenId),
     getIntro(tokenId),
@@ -25,7 +31,12 @@ export default async function ArtworkPage({
 
   return (
     <main className="flex flex-1 flex-col bg-white">
-      <ArtworkPageClient artwork={artwork} aboutBio={aboutBio} />
+      <ArtworkPageClient
+        artwork={artwork}
+        aboutBio={aboutBio}
+        playReveal={playReveal}
+        debugRegenerate={showDebugRegenerate}
+      />
     </main>
   );
 }

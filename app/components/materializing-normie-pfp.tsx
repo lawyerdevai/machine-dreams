@@ -33,17 +33,20 @@ export function MaterializingNormiePfp({
   src,
   sizeClass = "h-16 w-16 md:h-[4.5rem] md:w-[4.5rem]",
   active = true,
+  instant = false,
   onComplete,
 }: {
   src: string;
   sizeClass?: string;
   /** When false, stays blank until activated (for staged reveals). */
   active?: boolean;
+  /** Skip animation — show the settled image immediately (post-reveal handoff). */
+  instant?: boolean;
   onComplete?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
   const [phase, setPhase] = useState<"idle" | "scramble" | "resolve" | "done">(
-    "idle"
+    instant ? "done" : "idle"
   );
   const [flickerTick, setFlickerTick] = useState(0);
   const cells = useMemo(() => buildCells(), []);
@@ -52,7 +55,7 @@ export function MaterializingNormiePfp({
   const completed = useRef(false);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || instant) return;
 
     let cancelled = false;
     completed.current = false;
@@ -84,7 +87,7 @@ export function MaterializingNormiePfp({
       window.clearTimeout(resolveTimer);
       window.clearTimeout(doneTimer);
     };
-  }, [active]);
+  }, [active, instant]);
 
   useEffect(() => {
     if (phase !== "scramble") return;

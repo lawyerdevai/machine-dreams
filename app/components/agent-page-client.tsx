@@ -395,8 +395,8 @@ function DiscoveryRightColumn({
 
       await consumeSSE(res, (event) => {
         if (event.type === "complete") {
-          // Hand off to the catalog artwork detail (single design in use)
-          window.location.assign(`/artwork/${agent.tokenId}`);
+          // Hand off to the catalog artwork detail with a one-shot unveil
+          window.location.assign(`/artwork/${agent.tokenId}?justCreated=true`);
         } else if (event.type === "error") {
           throw new Error("creation_failed");
         }
