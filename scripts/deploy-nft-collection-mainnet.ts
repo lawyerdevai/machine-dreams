@@ -100,7 +100,7 @@ async function buildInitializeTransaction(options: {
     defaultAdmin: accountAddress,
     name: CONTRACT_PARAMS.name,
     symbol: CONTRACT_PARAMS.symbol,
-    platformFeeBps: 0n,
+    platformFeeBps: BigInt(0),
     platformFeeRecipient: accountAddress,
     royaltyBps: CONTRACT_PARAMS.royaltyBps,
     royaltyRecipient: accountAddress,

@@ -16,18 +16,13 @@ import {
   machineDreamsWallets,
 } from "@/app/components/wallet-connect-config";
 
-/** Match btn-nav / Connect styling used elsewhere in the nav */
-const BTN =
-  "font-mono text-sm uppercase tracking-wider border border-[#0a0a0a] bg-transparent text-[#0a0a0a] px-4 py-2 min-h-9 transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[#0a0a0a] disabled:cursor-not-allowed disabled:opacity-40";
-
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
 /**
- * Custom wallet control — avoids thirdweb ConnectButton's details modal
- * (known nested <button> / CopyIcon hydration warning in v5.120.1).
- * Connect uses the same modal + wallets as artwork mint.
+ * Wallet control only (no caption) — layout/caption owned by Nav so
+ * Connect / Gallery stay fixed while the delegate note sits below.
  */
 export function ConnectWalletButton() {
   const account = useActiveAccount();
@@ -70,38 +65,28 @@ export function ConnectWalletButton() {
 
   if (account?.address) {
     return (
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex items-center gap-2">
-          <span
-            className="font-mono text-sm uppercase tracking-wider text-[#666] tabular-nums"
-            title={account.address}
-          >
-            {shortAddress(account.address)}
-          </span>
-          <button type="button" onClick={handleDisconnect} className={BTN}>
-            Disconnect
-          </button>
-        </div>
-        <p className="font-mono text-[0.625rem] tracking-wide text-[#999]">
-          Using a hot wallet? Delegate.xyz is supported
-        </p>
+      <div className="flex items-center justify-end gap-2">
+        <span
+          className="font-mono text-xs uppercase tracking-[0.05em] text-[#666] tabular-nums"
+          title={account.address}
+        >
+          {shortAddress(account.address)}
+        </span>
+        <button type="button" onClick={handleDisconnect} className="btn-nav">
+          Disconnect
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        onClick={handleConnect}
-        disabled={busy}
-        className={BTN}
-      >
-        {busy ? "Connecting…" : "Connect"}
-      </button>
-      <p className="font-mono text-[0.625rem] tracking-wide text-[#999]">
-        Using a hot wallet? Delegate.xyz is supported
-      </p>
-    </div>
+    <button
+      type="button"
+      onClick={handleConnect}
+      disabled={busy}
+      className="btn-nav disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {busy ? "Connecting…" : "Connect"}
+    </button>
   );
 }
