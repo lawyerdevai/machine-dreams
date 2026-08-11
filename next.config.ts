@@ -1,4 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+/** Local stub — Machine Dreams never uses Base Account / @x402. */
+const baseOrgAccountStub = path.join(rootDir, "lib/stubs/base-org-account");
 
 const nextConfig: NextConfig = {
   images: {
@@ -20,6 +26,20 @@ const nextConfig: NextConfig = {
         hostname: "*.public.blob.vercel-storage.com",
       },
     ],
+  },
+  // next dev (Turbopack) — force stub even when thirdweb nests real @base-org/account
+  turbopack: {
+    resolveAlias: {
+      "@base-org/account": "./lib/stubs/base-org-account",
+    },
+  },
+  // next build / Vercel production — webpack resolves nested deps unless aliased
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@base-org/account": baseOrgAccountStub,
+    };
+    return config;
   },
 };
 
