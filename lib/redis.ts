@@ -1,11 +1,19 @@
 import { Redis } from "@upstash/redis";
-import { withArtworkDefaults, matchesArtworkCategory } from "./artworks";
+import {
+  isArtworkMinted,
+  matchesArtworkCategory,
+  withArtworkDefaults,
+  withOnChainMintReconcile,
+  withRecordedMint,
+  type RecordArtworkMintInput,
+} from "./artworks";
 import {
   matchesGallerySearch,
   type GalleryCategory,
   type GallerySort,
 } from "./gallery";
 import type { Artwork } from "./types";
+import { getCurrentNftDeployment } from "./thirdweb-contract";
 
 export const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -99,6 +107,54 @@ export async function getArtworkRaw(tokenId: string): Promise<Artwork | null> {
 export async function saveArtwork(artwork: Artwork): Promise<void> {
   await redis.set(artworkKey(artwork.tokenId), artwork);
   await redis.sadd(ARTWORK_INDEX, artwork.tokenId);
+}
+
+/**
+ * Persist a successful client mint onto the artwork Redis record.
+ * Always stamps the currently configured contract + chainId.
+ * Returns the updated artwork, or null if no artwork exists for the token.
+ */
+export async function recordArtworkMint(
+  input: Omit<RecordArtworkMintInput, "mintedOnContract" | "mintedOnChainId"> &
+    Partial<Pick<RecordArtworkMintInput, "mintedOnContract" | "mintedOnChainId">>
+): Promise<Artwork | null> {
+  const deployment = getCurrentNftDeployment();
+  if (!deployment) {
+    throw new Error("NEXT_PUBLIC_NFT_CONTRACT_ADDRESS is not set");
+  }
+
+  const existing = await getArtworkRaw(input.tokenId);
+  if (!existing) return null;
+  const updated = withRecordedMint(existing, {
+    mintedBy: input.mintedBy,
+    mintTxHash: input.mintTxHash,
+    mintedAt: input.mintedAt,
+    mintedOnContract: input.mintedOnContract ?? deployment.address,
+    mintedOnChainId: input.mintedOnChainId ?? deployment.chainId,
+  });
+  await saveArtwork(updated);
+  return withArtworkDefaults(updated);
+}
+
+/**
+ * When on-chain says minted on the *current* contract but Redis does not,
+ * update Redis to match (stamping current contract + chainId).
+ * Leaves mintedBy / mintTxHash unset when unknown.
+ */
+export async function reconcileArtworkMintedOnChain(
+  tokenId: string
+): Promise<Artwork | null> {
+  const deployment = getCurrentNftDeployment();
+  if (!deployment) {
+    throw new Error("NEXT_PUBLIC_NFT_CONTRACT_ADDRESS is not set");
+  }
+
+  const existing = await getArtworkRaw(tokenId);
+  if (!existing) return null;
+  if (isArtworkMinted(existing)) return withArtworkDefaults(existing);
+  const updated = withOnChainMintReconcile(existing, deployment);
+  await saveArtwork(updated);
+  return withArtworkDefaults(updated);
 }
 
 export async function deleteArtwork(tokenId: string): Promise<void> {

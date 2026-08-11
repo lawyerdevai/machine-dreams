@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ConnectWalletButton } from "@/app/components/connect-wallet-button";
 
 export function Nav() {
   const pathname = usePathname();
@@ -24,15 +25,19 @@ export function Nav() {
           Machine Dreams
         </Link>
       )}
-      {onGallery ? (
-        <Link href="/" className="btn-nav">
-          Home
-        </Link>
-      ) : (
-        <Link href="/gallery" className="btn-nav">
-          Gallery
-        </Link>
-      )}
+      <div className="flex items-center gap-3">
+        {/* Wallet connect — remove ConnectWalletButton import to drop */}
+        <ConnectWalletButton />
+        {onGallery ? (
+          <Link href="/" className="btn-nav">
+            Home
+          </Link>
+        ) : (
+          <Link href="/gallery" className="btn-nav">
+            Gallery
+          </Link>
+        )}
+      </div>
     </header>
   );
 }

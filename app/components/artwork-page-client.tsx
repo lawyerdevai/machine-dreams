@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ArtworkReveal } from "@/app/components/artwork-reveal";
+import { OwnershipMintBlock } from "@/app/components/artwork-mint-block";
 import { DebugRegenerateButton } from "@/app/components/debug-regenerate-button";
 import { MaterializingNormiePfp } from "@/app/components/materializing-normie-pfp";
 import {
@@ -55,42 +56,6 @@ function CatalogAccordion({
       </button>
       {open ? <div className={`mt-3 ${BODY}`}>{children}</div> : null}
     </div>
-  );
-}
-
-/**
- * Ownership / mint — borderless catalog block.
- * Extensible later for bidding UI below this row.
- *
- * NOTE: Artwork has no `owner` field yet. When minted, agent name is a stand-in.
- */
-function OwnershipMintBlock({ artwork }: { artwork: Artwork }) {
-  const minted = Boolean(artwork.mintedAt);
-
-  return (
-    <section
-      aria-label={minted ? "Ownership" : "Mint"}
-      className={`${RULE} pt-8`}
-    >
-      {minted ? (
-        <div className="flex flex-col gap-3">
-          <span className={EYEBROW}>Owned by</span>
-          <p className={BODY}>{lowercaseName(artwork.agentName)}</p>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between gap-6">
-          <p className={EYEBROW}>Not minted · Minting coming soon</p>
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            className="shrink-0 cursor-not-allowed bg-[#e8e8e8] px-5 py-2.5 font-serif text-[0.6875rem] uppercase tracking-[0.14em] text-[#999]"
-          >
-            Mint
-          </button>
-        </div>
-      )}
-    </section>
   );
 }
 

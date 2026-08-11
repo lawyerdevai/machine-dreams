@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AgentName, TokenId } from "@/app/components/typography";
+import { ARTWORK_CREATION_USER_MESSAGE } from "@/lib/artwork-creation-messages";
 import { agentImageUrl } from "@/lib/normies";
 import { agentOrArtworkPath } from "@/lib/routes";
 import { TYPE } from "@/lib/typography";
@@ -26,6 +27,29 @@ function isValidTokenId(value: string) {
   return n >= 0 && n <= 9999;
 }
 
+async function consumeSSE(
+  response: Response,
+  onEvent: (data: Record<string, string | boolean>) => void
+) {
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      const line = part.trim();
+      if (line.startsWith("data: ")) {
+        onEvent(JSON.parse(line.slice(6)));
+      }
+    }
+  }
+}
+
 function FeedbackMessage({ feedback }: { feedback: Feedback }) {
   if (!feedback) return null;
   return (
@@ -39,20 +63,78 @@ function FeedbackMessage({ feedback }: { feedback: Feedback }) {
   );
 }
 
+function DreamingStatus() {
+  const [dots, setDots] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDots((current) => (current + 1) % 4);
+    }, 450);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <p className={`${TYPE.proseSm} italic text-center`}>
+      Dreaming{".".repeat(dots)}
+    </p>
+  );
+}
+
 export function FindPageClient() {
   const router = useRouter();
   const [address, setAddress] = useState("");
   const [tokenId, setTokenId] = useState("");
   const [walletLoading, setWalletLoading] = useState(false);
   const [tokenLoading, setTokenLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [walletFeedback, setWalletFeedback] = useState<Feedback>(null);
   const [tokenFeedback, setTokenFeedback] = useState<Feedback>(null);
   const [agents, setAgents] = useState<AgentResult[]>([]);
 
+  const busy = walletLoading || tokenLoading || creating;
+
+  async function createArtworkAndReveal(trimmedTokenId: string) {
+    setCreating(true);
+    setTokenFeedback(null);
+
+    try {
+      const res = await fetch("/api/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokenId: trimmedTokenId }),
+      });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!res.ok || contentType.includes("application/json")) {
+        setTokenFeedback({
+          tone: "error",
+          message: ARTWORK_CREATION_USER_MESSAGE,
+        });
+        setCreating(false);
+        return;
+      }
+
+      await consumeSSE(res, (event) => {
+        if (event.type === "complete") {
+          window.location.assign(
+            `/artwork/${trimmedTokenId}?justCreated=true`
+          );
+        } else if (event.type === "error") {
+          throw new Error("creation_failed");
+        }
+      });
+    } catch {
+      setTokenFeedback({
+        tone: "error",
+        message: ARTWORK_CREATION_USER_MESSAGE,
+      });
+      setCreating(false);
+    }
+  }
+
   async function handleWalletSearch(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = address.trim();
-    if (!trimmed) return;
+    if (!trimmed || busy) return;
 
     setWalletLoading(true);
     setWalletFeedback(null);
@@ -117,7 +199,7 @@ export function FindPageClient() {
   async function handleTokenGo(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = tokenId.trim();
-    if (!trimmed) return;
+    if (!trimmed || busy) return;
 
     setTokenLoading(true);
     setTokenFeedback(null);
@@ -164,7 +246,15 @@ export function FindPageClient() {
         return;
       }
 
-      router.push(agentOrArtworkPath(trimmed, data.hasArtwork === true));
+      if (data.hasArtwork === true) {
+        router.push(`/artwork/${trimmed}`);
+        return;
+      }
+
+      // No artwork yet — start generation here (skip /agent intermediate page)
+      setTokenLoading(false);
+      await createArtworkAndReveal(trimmed);
+      return;
     } catch {
       setTokenFeedback({
         tone: "error",
@@ -186,11 +276,12 @@ export function FindPageClient() {
             if (walletFeedback) setWalletFeedback(null);
           }}
           placeholder="wallet address"
+          disabled={creating}
           className={TYPE.input}
         />
         <button
           type="submit"
-          disabled={walletLoading || tokenLoading}
+          disabled={busy}
           className="btn-minimal w-full disabled:opacity-40"
         >
           {walletLoading ? "Searching…" : "Search"}
@@ -216,19 +307,25 @@ export function FindPageClient() {
             if (tokenFeedback) setTokenFeedback(null);
           }}
           placeholder="token id"
+          disabled={creating}
           className={TYPE.input}
         />
         <button
           type="submit"
-          disabled={walletLoading || tokenLoading}
+          disabled={busy}
           className="btn-minimal w-full disabled:opacity-40"
         >
-          {tokenLoading ? "Checking…" : "Go"}
+          {creating
+            ? "Creating…"
+            : tokenLoading
+              ? "Checking…"
+              : "Go"}
         </button>
+        {creating ? <DreamingStatus /> : null}
         <FeedbackMessage feedback={tokenFeedback} />
       </form>
 
-      {agents.length > 0 && (
+      {agents.length > 0 && !creating ? (
         <div className="grid grid-cols-3 gap-6 w-full pt-4">
           {agents.map((agent) => (
             <Link
@@ -246,7 +343,7 @@ export function FindPageClient() {
             </Link>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,8 @@
 export type ArtworkCategory = "normie" | "data-medium" | "agentic";
 
+/** App-persisted mint state (Redis). On-chain remains source of truth for disputes. */
+export type MintStatus = "not-minted" | "minted";
+
 export interface Artwork {
   tokenId: string;
   agentName: string;
@@ -11,6 +14,19 @@ export interface Artwork {
   imageUrl: string;
   createdAt: string;
   mintedAt: string | null;
+  /** Explicit mint flag; legacy records may only have mintedAt. */
+  mintStatus?: MintStatus;
+  /** Wallet that claimed this artwork on-chain. */
+  mintedBy?: string;
+  /** Mint transaction hash on mintedOnChainId. */
+  mintTxHash?: string;
+  /**
+   * NFT contract this mint was recorded against.
+   * Required to treat mintStatus as valid for the currently configured contract.
+   */
+  mintedOnContract?: string;
+  /** Chain id for mintedOnContract (e.g. 11155111 Sepolia, 1 Ethereum). */
+  mintedOnChainId?: number;
   imageExpired?: boolean;
   /** Collection bucket; missing on legacy Redis records — defaulted at read-time. */
   category?: ArtworkCategory;

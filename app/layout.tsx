@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Space_Mono } from "next/font/google";
 import { Nav } from "@/app/components/nav";
+import { ThirdwebProviderClient } from "@/app/components/thirdweb-provider";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -31,8 +32,10 @@ export default function RootLayout({
       className={`${cormorant.variable} ${spaceMono.variable} h-full`}
     >
       <body className="min-h-full flex flex-col bg-white text-[#0a0a0a]">
-        <Nav />
-        {children}
+        <ThirdwebProviderClient>
+          <Nav />
+          {children}
+        </ThirdwebProviderClient>
       </body>
     </html>
   );

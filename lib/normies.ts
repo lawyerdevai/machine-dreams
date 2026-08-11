@@ -2,6 +2,10 @@ import type { AgentInfo, AwakenedAgent } from "./types";
 
 const BASE = "https://api.normies.art";
 
+/** Normies ERC-721 collection on Ethereum mainnet (official). */
+export const NORMIES_NFT_CONTRACT =
+  "0x9Eb6E2025B64f340691e424b7fe7022fFDE12438" as const;
+
 export function agentImageUrl(tokenId: string) {
   return `${BASE}/agents/image/${tokenId}`;
 }

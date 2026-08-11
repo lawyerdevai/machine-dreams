@@ -1,0 +1,11 @@
+{
+  "name": "@base-org/account",
+  "version": "0.0.0-machine-dreams-stub",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "module": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}
