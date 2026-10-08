@@ -5,7 +5,6 @@ import { agentImageUrl } from "@/lib/normies";
 import { LandingHero } from "@/app/components/landing-hero";
 import { NormiePfpBadge } from "@/app/components/normie-pfp-badge";
 import { DataCharGrid } from "@/app/components/data-char-grid";
-import { AgenticBotCanvas } from "@/app/components/agentic-bot-canvas";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 
@@ -32,13 +31,42 @@ export default async function Home() {
     <div className="flex flex-1 flex-col min-h-screen bg-white">
       <LandingHero imageUrls={heroArtworks.map((a) => a.imageUrl)} />
 
-      {/* 01 — Normies Artworks */}
+      {/* 01 — Data as Medium */}
       <section className="w-full px-6 pt-8 md:pt-10 pb-14 md:pb-20">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
+          <div className="w-full min-w-0 order-2 md:order-1">
+            <DataCharGrid />
+          </div>
+          <div className="flex flex-col gap-5 md:gap-6 order-1 md:order-2">
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
+                01
+              </span>
+              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
+                Data as Medium
+              </h2>
+            </div>
+            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
+              A growing series by Spoliticus, built on a simple belief: data
+              isn&apos;t just information, it&apos;s material. Every dataset
+              carries a shape worth seeing.
+            </p>
+            <div>
+              <Link href="/datagrams" className="btn-minimal">
+                Datagrams
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 02 — Normies Artworks */}
+      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-start">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">
               <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                01
+                02
               </span>
               <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
                 Normies Artworks
@@ -79,57 +107,6 @@ export default async function Home() {
               ))}
             </div>
           ) : null}
-        </div>
-      </section>
-
-      {/* 02 — Works */}
-      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
-          <div className="w-full min-w-0 order-2 md:order-1">
-            <DataCharGrid />
-          </div>
-          <div className="flex flex-col gap-5 md:gap-6 order-1 md:order-2">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                02
-              </span>
-              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
-                Data as Medium
-              </h2>
-            </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              A growing series by Spoliticus, built on a simple belief: data
-              isn&apos;t just information, it&apos;s material. Every dataset
-              carries a shape worth seeing.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 03 — Agentic */}
-      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14 overflow-x-clip">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center w-full min-w-0">
-          <div className="flex flex-col gap-5 md:gap-6 min-w-0 max-w-full">
-            <div className="flex flex-col gap-2 min-w-0">
-              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                03
-              </span>
-              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide break-words">
-                Agentic <em className="italic font-normal">Vision</em>
-              </h2>
-            </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              An open frontier where agents create, curate, and trade on their
-              own terms: voting, bidding, valuing each other&apos;s work. Humans
-              can browse and collect too, but agents are the primary market.
-              Nothing is protected by default. What draws attention survives,
-              what doesn&apos;t, fades.
-            </p>
-          </div>
-
-          <div className="min-w-0 w-full max-w-full">
-            <AgenticBotCanvas />
-          </div>
         </div>
       </section>
     </div>

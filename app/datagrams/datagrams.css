@@ -1,0 +1,82 @@
+/* Datagrams page. Matches the single-work page: white page, #f7f7f5 mat, #0a0a0a image well, hairline rules,
+   serif type that inherits the site font (Cormorant Garamond). Every class starts with dg-; nothing needs Tailwind.
+   Type scale, used everywhere: label .6875rem caps  /  text .9375rem  /  figure 1.125rem  /  title 1.375rem.
+   Spacing scale: 8, 16, 24, 40. */
+.dg {
+  --text: #0a0a0a; --eyebrow: #666; --quiet: #999; --faint: #aaa; --rule: #e5e5e5; --mat: #f7f7f5; --well: #0a0a0a; --flash: #f1efe6;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 24px 24px 56px; color: var(--text); background: #fff;
+  font-family: inherit; font-size: .9375rem; line-height: 1.65; font-variant-numeric: lining-nums tabular-nums;
+}
+.dg * { box-sizing: border-box; }
+.dg p { margin: 0; }
+
+/* ---------- desktop: art + how it's made on the left, a sticky plate + fills on the right ---------- */
+@media (min-width: 900px) {
+  .dg { grid-template-columns: minmax(0, 1fr) minmax(0, 28rem); column-gap: 56px; justify-content: center; max-width: 80rem; margin: 0 auto; padding: 40px 40px 72px; }
+  .dg-art { grid-column: 1; grid-row: 1; }
+  .dg-how { grid-column: 1; grid-row: 2; }
+  .dg-side { grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); display: flex; flex-direction: column; gap: 24px; }
+  .dg-fillbox { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .dg-fills { flex: 1 1 auto; min-height: 8rem; }
+}
+/* ---------- phone: art, title and statement, how it's made, fills ---------- */
+@media (max-width: 899px) {
+  .dg-side { display: contents; }
+  .dg-art { order: 1; } .dg-plate { order: 2; margin-top: 24px; } .dg-how { order: 3; } .dg-fillbox { order: 4; } .dg-foot { order: 5; }
+  .dg-fills { max-height: 22rem; }
+}
+
+/* ---------- art ---------- */
+.dg-art { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dg-mat { width: 100%; max-width: 40rem; background: var(--mat); padding: 12px; }
+@media (min-width: 900px) { .dg-mat { padding: 16px; } }
+.dg-well { background: var(--well); aspect-ratio: 1 / 1; overflow: hidden; }
+.dg-well iframe { width: 100%; height: 100%; border: 0; display: block; }
+.dg-empty { height: 100%; display: grid; place-content: center; color: var(--quiet); }
+
+.dg-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; width: 100%; max-width: 40rem; }
+.dg-day { background: none; border: 0; border-bottom: 1px solid var(--rule); padding: 8px 0; font: inherit; font-size: .6875rem; letter-spacing: .14em; text-transform: uppercase; line-height: 1; color: var(--quiet); cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; }
+.dg-day:disabled { cursor: default; color: #d8d8d8; }
+.dg-day:not(:disabled):hover { color: var(--text); }
+.dg-day.is-on { color: var(--text); border-bottom-color: var(--text); }
+.dg-day:focus-visible { outline: 1px solid var(--quiet); outline-offset: 2px; }
+.dg-livedot { width: 5px; height: 5px; border-radius: 50%; background: var(--text); animation: dgpulse 2.4s ease-in-out infinite; }
+@keyframes dgpulse { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+
+/* ---------- plate ---------- */
+.dg-plate { display: flex; flex-direction: column; gap: 16px; }
+.dg-eyebrow { font-size: .6875rem; letter-spacing: .14em; text-transform: uppercase; color: var(--eyebrow); line-height: 1.4; }
+.dg-title { margin: 0; font-weight: 400; font-size: 1.375rem; line-height: 1.25; letter-spacing: .04em; text-transform: uppercase; }
+.dg-status { color: var(--quiet); }
+
+/* ---------- fills ---------- */
+.dg-fillbox { border-top: 1px solid var(--rule); padding-top: 16px; }
+.dg-fillhead { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+.dg-fills { list-style: none; margin: 0; padding: 0 8px 0 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ddd transparent; overscroll-behavior: contain; }
+.dg-fills:focus-visible { outline: 1px solid #ddd; outline-offset: 4px; }
+.dg-fills li { border-top: 1px solid #f0f0f0; }
+.dg-fills li:first-child { border-top: 0; }
+.dg-fills a { display: grid; grid-template-columns: 4.5rem 1fr auto; gap: 8px; padding: 8px 0; color: var(--eyebrow); text-decoration: none; }
+.dg-fills a:hover { color: var(--text); }
+.dg-fpx b { font-weight: 400; color: var(--text); }
+.dg-feth { color: var(--text); }
+.dg-fago { color: var(--quiet); text-align: right; }
+.dg-fills li.is-new { animation: dgnew 2s ease-out; }
+@keyframes dgnew { 0% { background: var(--flash); } 100% { background: transparent; } }
+.dg-none { padding: 8px 0; color: var(--quiet); }
+
+.dg-foot { border-top: 1px solid var(--rule); padding-top: 16px; font-size: .75rem; line-height: 1.7; color: var(--faint); }
+.dg-foot a { color: var(--quiet); text-decoration: underline; text-decoration-color: #ccc; text-underline-offset: 2px; }
+
+/* ---------- how it's made ---------- */
+.dg-how { margin-top: 40px; max-width: 40rem; margin-inline: auto; width: 100%; border-top: 1px solid var(--rule); padding-top: 24px; }
+.dg-lede { margin-top: 8px; color: var(--eyebrow); max-width: 34rem; }
+.dg-rows { margin-top: 24px; display: flex; flex-direction: column; }
+.dg-row { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 8px 24px; padding: 16px 0; border-top: 1px solid #f0f0f0; }
+.dg-row:first-child { border-top: 0; padding-top: 0; }
+@media (max-width: 520px) { .dg-row { grid-template-columns: 1fr; } }
+.dg-rk { display: flex; flex-direction: column; gap: 2px; }
+.dg-rk b { font-weight: 400; font-size: 1.125rem; line-height: 1.3; }
+.dg-rk span { font-size: .6875rem; letter-spacing: .14em; text-transform: uppercase; color: var(--quiet); line-height: 1.4; }
+.dg-row.is-quiet .dg-rv { color: var(--eyebrow); }
+@media (prefers-reduced-motion: reduce) { .dg-livedot, .dg-fills li.is-new { animation: none; } }

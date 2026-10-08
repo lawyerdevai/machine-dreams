@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# datagrams weekly records + renders
+/data/
+
 # production
 /build
 
