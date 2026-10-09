@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectWalletButton } from "@/app/components/connect-wallet-button";
@@ -9,26 +10,70 @@ const NAV_CAPTION =
   "font-serif text-[0.6875rem] uppercase tracking-[0.14em] text-[#666]";
 
 /**
- * Right-side nav cluster:
- *   [ wallet control ][ Gallery/Home ]  ← fixed button row, right-aligned
- *   Using a hot wallet? Delegate.xyz…  ← caption under the row, right-aligned
+ * Right-side nav cluster varies by route:
+ *   /about            — logo only (empty right)
+ *   /datagrams        — About → /datagrams/about
+ *   /datagrams/about  — Gallery → /datagrams
+ *   /datagrams/[week] — Gallery → /datagrams
+ *   /gallery          — Connect + Home + Delegate caption
+ *   elsewhere         — Connect + Gallery + Delegate caption
  *
- * Wallet control sits in a reserved min-width slot so Connect ↔ Disconnect
- * does not shift Gallery. Caption is outside the button row so it never
- * pushes buttons.
- *
- * On /datagrams*: section brand, no Connect / Delegate caption; Gallery only
- * on piece pages and links back to the Datagrams index.
+ * On /datagrams*: "MACHINE DREAMS / Datagrams" brand; no Connect / Delegate.
  */
 export function Nav() {
   const pathname = usePathname();
   const onGallery = pathname === "/gallery";
+  const onAbout = pathname === "/about";
   const onDatagrams = pathname === "/datagrams" || pathname.startsWith("/datagrams/");
   const onDatagramsIndex = pathname === "/datagrams";
-  const onDatagramsPiece = onDatagrams && !onDatagramsIndex;
+  const onDatagramsAbout = pathname === "/datagrams/about";
+  const onDatagramsPiece = onDatagrams && !onDatagramsIndex && !onDatagramsAbout;
 
   if (pathname === "/") {
     return null;
+  }
+
+  let right: ReactNode = null;
+  if (onAbout) {
+    right = null;
+  } else if (onDatagramsIndex) {
+    right = (
+      <div className="flex items-center self-center">
+        <Link href="/datagrams/about" className="btn-nav shrink-0">
+          About
+        </Link>
+      </div>
+    );
+  } else if (onDatagramsAbout || onDatagramsPiece) {
+    right = (
+      <div className="flex items-center self-center">
+        <Link href="/datagrams" className="btn-nav shrink-0">
+          Gallery
+        </Link>
+      </div>
+    );
+  } else {
+    right = (
+      <div className="flex flex-col items-end gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex min-w-[15.5rem] items-center justify-end">
+            <ConnectWalletButton />
+          </div>
+          {onGallery ? (
+            <Link href="/" className="btn-nav shrink-0">
+              Home
+            </Link>
+          ) : (
+            <Link href="/gallery" className="btn-nav shrink-0">
+              Gallery
+            </Link>
+          )}
+        </div>
+        <p className={`${NAV_CAPTION} text-right`}>
+          Using a hot wallet? Delegate.xyz is supported
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -56,36 +101,7 @@ export function Nav() {
         </div>
       )}
 
-      {onDatagrams ? (
-        onDatagramsPiece ? (
-          <div className="flex items-center self-center">
-            <Link href="/datagrams" className="btn-nav shrink-0">
-              Gallery
-            </Link>
-          </div>
-        ) : null
-      ) : (
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-3">
-            {/* Reserved width keeps Gallery pinned when wallet state changes */}
-            <div className="flex min-w-[15.5rem] items-center justify-end">
-              <ConnectWalletButton />
-            </div>
-            {onGallery ? (
-              <Link href="/" className="btn-nav shrink-0">
-                Home
-              </Link>
-            ) : (
-              <Link href="/gallery" className="btn-nav shrink-0">
-                Gallery
-              </Link>
-            )}
-          </div>
-          <p className={`${NAV_CAPTION} text-right`}>
-            Using a hot wallet? Delegate.xyz is supported
-          </p>
-        </div>
-      )}
+      {right}
     </header>
   );
 }

@@ -111,12 +111,6 @@ export function LandingNav() {
       </Link>
       <div className="flex shrink-0 items-center gap-3 max-md:gap-1.5">
         <Link
-          href="/gallery"
-          className="btn-nav max-md:px-2 max-md:py-1 max-md:text-[10px] max-md:leading-none max-md:tracking-[0.04em]"
-        >
-          Gallery
-        </Link>
-        <Link
           href="/about"
           className="btn-nav max-md:px-2 max-md:py-1 max-md:text-[10px] max-md:leading-none max-md:tracking-[0.04em]"
         >

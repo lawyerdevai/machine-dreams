@@ -37,6 +37,8 @@ export async function generateMetadata({ params }: { params: Promise<{ week: str
 
 export default async function DatagramWeekPage({ params }: { params: Promise<{ week: string }> }) {
   const { week } = await params;
+  // Reject non-date keys (e.g. "about") — static routes like /datagrams/about take priority,
+  // but this guard keeps getWeek from ever treating a slug as a weekKey.
   if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) notFound();
 
   const rec = await getWeek(week);
