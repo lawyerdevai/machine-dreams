@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ week: str
   if (!rec?.published) return { title: "Datagrams" };
   return {
     title: `${rec.title} · Datagrams`,
-    description: `Week of ${week}: generative art from Pixel Market activity, written by Claude.`,
+    description: `Week of ${week}: generative art from Pixel Market activity.`,
   };
 }
 

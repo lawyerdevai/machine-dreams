@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Datagrams",
   description:
-    "One piece of generative art a week, made from Pixel Market activity and written by Claude.",
+    "One generative artwork a week, made from Pixel Market activity.",
 };
 
 const ZERO: WeekStats = { fills: 0, volumeEth: 0, churn: 0, wallets: 0, volatility: 0 };
