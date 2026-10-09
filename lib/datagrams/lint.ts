@@ -23,9 +23,12 @@ export function lintScene(raw: string): LintResult {
     if (!r || typeof r.factor !== "string" || typeof r.effect !== "string") return { ok: false, reason: "a rationale row is malformed" };
     const isTheme = /theme|schedule|^day/i.test(r.factor);
     if (!isTheme && !/[{\d]/.test(String(r.value ?? ""))) return { ok: false, reason: `rationale row "${r.factor}" must quote a real number with a {token}` };
+    const cap = /theme/i.test(r.factor) ? 280 : /schedule|^day/i.test(r.factor) ? 220 : 150;
+    if (r.effect.length > cap) return { ok: false, reason: `rationale row "${r.factor}" is too long (${r.effect.length} characters, limit ${cap}); write one short sentence` };
     if (/\b(very|extremely)\s+(low|high|quiet|busy)\b/i.test(r.effect)) return { ok: false, reason: `rationale row "${r.factor}" uses an adjective instead of the number` };
   }
 
+  if (typeof head.note === "string" && head.note.length > 240) return { ok: false, reason: "note is too long; keep it to 2 short sentences under 220 characters" };
   if (!rat.some((r: any) => /theme/i.test(r.factor))) return { ok: false, reason: 'the rationale needs a row with factor "theme"' };
   const has = (re: RegExp) => rat.some((r: any) => re.test(String(r.factor)));
   const missing = [["fills", /fill/i], ["volume", /volume|eth/i], ["churn", /churn|listing/i], ["wallets", /wallet/i], ["volatility", /volatil/i]].filter(([, re]) => !has(re as RegExp)).map(([n]) => n);

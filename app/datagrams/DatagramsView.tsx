@@ -136,7 +136,7 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
               {meta?.note && <p className="dg-body">{meta.note}</p>}
               {themeText && (
                 <p className="dg-body dg-theme">
-                  <span className="dg-eyebrow">{shown.genesis ? "Why this world" : "Why this world · from last week"}</span>
+                  <span className="dg-eyebrow">{shown.genesis ? "Theme · no data yet" : "Theme · from last week"}</span>
                   {themeText}
                 </p>
               )}

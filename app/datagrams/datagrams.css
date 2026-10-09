@@ -10,7 +10,7 @@
 .dg p { margin: 0; }
 
 @media (min-width: 900px) {
-  .dg { grid-template-columns: minmax(0, 1fr) minmax(0, 27rem); column-gap: 56px; justify-content: center; max-width: 80rem; margin: 0 auto; padding: 40px 40px 72px; align-items: start; }
+  .dg { grid-template-columns: minmax(0, 3fr) minmax(20rem, 2fr); column-gap: 40px; padding: 32px 32px 72px; justify-content: center; max-width: 80rem; margin: 0 auto; align-items: start; }
   .dg-art { position: sticky; top: 24px; }
 }
 
