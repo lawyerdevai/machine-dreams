@@ -7,7 +7,6 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const baseOrgAccountStub = path.join(rootDir, "lib/stubs/base-org-account");
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["canvas"],
   images: {
     remotePatterns: [
       {
