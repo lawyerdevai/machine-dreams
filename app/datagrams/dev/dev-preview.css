@@ -1,0 +1,46 @@
+/* TEMPORARY dev preview. DELETE BEFORE LAUNCH: delete app/datagrams/dev and app/api/datagrams/dev. */
+.dg-dev-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fff;
+}
+.dg-dev-label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #999;
+  line-height: 1.4;
+}
+.dg-dev-progress {
+  padding: 10px 24px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+}
+.dg-dev-progress-track {
+  width: 100%;
+  height: 2px;
+  background: #e5e5e5;
+}
+.dg-dev-progress-fill {
+  height: 100%;
+  background: #0a0a0a;
+  transition: width 0.2s linear;
+}
+.dg-dev-progress-text {
+  margin: 8px 0 0;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #666;
+  line-height: 1.4;
+}
+.dg-dev-error {
+  padding: 16px 24px;
+  color: #a00;
+  white-space: pre-wrap;
+  margin: 0;
+}
