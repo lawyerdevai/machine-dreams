@@ -67,9 +67,9 @@ export default async function AboutPage() {
           <SectionLabel>Datagrams</SectionLabel>
           <div className="h-px bg-[#0a0a0a] w-full" />
           <p className={TYPE.prose}>
-            Data as Medium. A growing series by Spoliticus, built on a simple
-            belief: data isn&apos;t just information, it&apos;s material. Every
-            dataset carries a shape worth seeing. Each week, one new artwork is
+            Data as Medium. A growing series built on a simple belief: data
+            isn&apos;t just information, it&apos;s material. Every dataset
+            carries a shape worth seeing. Each week, one new artwork is
             generated from the activity of the Normies Pixel Market. Last
             week&apos;s activity decides the theme, and this week&apos;s numbers
             decide how much of it appears, so the work fills in day by day as

@@ -4,7 +4,7 @@ import { TYPE } from "@/lib/typography";
 export const metadata = {
   title: "About Datagrams",
   description:
-    "Data as Medium. A growing series by Spoliticus — weekly artworks from Normies Pixel Market activity.",
+    "Data as Medium. A growing series — weekly artworks from Normies Pixel Market activity.",
 };
 
 export default function DatagramsAboutPage() {
@@ -13,9 +13,9 @@ export default function DatagramsAboutPage() {
       <section className="max-w-3xl mx-auto w-full flex flex-col gap-10">
         <div className="flex flex-col gap-4 text-center">
           <p className={`${TYPE.tagline} leading-relaxed`}>
-            Data as Medium. A growing series by Spoliticus, built on a simple
-            belief: data isn&apos;t just information, it&apos;s material. Every
-            dataset carries a shape worth seeing.
+            Data as Medium. A growing series built on a simple belief: data
+            isn&apos;t just information, it&apos;s material. Every dataset
+            carries a shape worth seeing.
           </p>
         </div>
 

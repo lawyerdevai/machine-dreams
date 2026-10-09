@@ -52,9 +52,9 @@ export default async function Home() {
               </h2>
             </div>
             <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              A growing series by Spoliticus, built on a simple belief: data
-              isn&apos;t just information, it&apos;s material. Every dataset
-              carries a shape worth seeing.
+              A growing series built on a simple belief: data isn&apos;t just
+              information, it&apos;s material. Every dataset carries a shape
+              worth seeing.
             </p>
             <div>
               <Link href="/datagrams" className="btn-minimal">
