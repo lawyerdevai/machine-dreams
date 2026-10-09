@@ -21,12 +21,15 @@ export function lintScene(raw: string): LintResult {
   if (rat.length < 4) return { ok: false, reason: "rationale needs at least 4 rows" };
   for (const r of rat) {
     if (!r || typeof r.factor !== "string" || typeof r.effect !== "string") return { ok: false, reason: "a rationale row is malformed" };
-    const isTheme = /theme/i.test(r.factor);
+    const isTheme = /theme|schedule|^day/i.test(r.factor);
     if (!isTheme && !/[{\d]/.test(String(r.value ?? ""))) return { ok: false, reason: `rationale row "${r.factor}" must quote a real number with a {token}` };
     if (/\b(very|extremely)\s+(low|high|quiet|busy)\b/i.test(r.effect)) return { ok: false, reason: `rationale row "${r.factor}" uses an adjective instead of the number` };
   }
 
   if (!rat.some((r: any) => /theme/i.test(r.factor))) return { ok: false, reason: 'the rationale needs a row with factor "theme"' };
+  const has = (re: RegExp) => rat.some((r: any) => re.test(String(r.factor)));
+  const missing = [["fills", /fill/i], ["volume", /volume|eth/i], ["churn", /churn|listing/i], ["wallets", /wallet/i], ["volatility", /volatil/i]].filter(([, re]) => !has(re as RegExp)).map(([n]) => n);
+  if (missing.length) return { ok: false, reason: `the rationale needs one row for each of the five numbers; missing: ${missing.join(", ")}` };
   const dayUses = (text.match(/"(?:=|if":\s*"=)[^"\n]*\b(day|progress)\b/g) || []).length;
   if (dayUses < 2) return { ok: false, reason: "use day or progress in at least two expressions so the week visibly unfolds" };
 

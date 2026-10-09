@@ -6,22 +6,25 @@ type Stats = { fills: number; volumeEth: number; churn: number; wallets: number;
 type Week = { weekKey: string; title: string; scene: string; sha256: string; genesis: boolean; basis: Stats | null };
 type Fallback = Week & { final: Stats; day: number };
 type Meta = { title: string; mood: string; note: string; notes: { k: string; v: string }[] };
-type LiveFill = { id: string; buyer: string; seller: string; pixels: number; priceEth: number; totalEth: number; ts: number; tx: string };
-type Live = { weekKey: string; weekStart: number; weekEnd: number; now: number; days: Stats[]; stats: Stats; fills: LiveFill[] };
+type Live = { weekKey: string; weekStart: number; weekEnd: number; now: number; days: Stats[]; stats: Stats };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const seedFromHash = (h: string) => parseInt(h.slice(0, 8), 16) >>> 0;
-const eth = (n: number) => (n === 0 ? "0" : n < 0.01 ? n.toFixed(4) : n < 10 ? n.toFixed(3) : n.toFixed(2));
-const ago = (ms: number, now: number) => {
-  const s = Math.max(0, Math.round((now - ms) / 1000));
-  if (s < 60) return s + "s ago";
-  if (s < 3600) return Math.floor(s / 60) + "m ago";
-  if (s < 86400) return Math.floor(s / 3600) + "h ago";
-  return Math.floor(s / 86400) + "d ago";
-};
+const eth = (n: number) => (n === 0 ? "0" : n < 0.01 ? n.toFixed(4) : n < 10 ? n.toFixed(2) : n.toFixed(1));
+const cap = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 const fmtDay = (key: string) => new Date(key + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-/* order the "how it's made" rows: the world first, then the schedule, then the numbers, then the engine's texture rows */
-const rank = (name: string) => (/theme|world/i.test(name) ? 0 : /schedule/i.test(name) ? 1 : /^(colour|color|glitch)$/i.test(name) ? 3 : 2);
+
+/* The same eight rows every week. `test` finds Claude's sentence for the row; `fallback` is used if Claude left it out. */
+const ROWS: { key: string; name: string; what: string; test: RegExp; fallback: string }[] = [
+  { key: "fills", name: "Fills", what: "trades completed", test: /fill|trade|sale/i, fallback: "Sets how much is happening in the picture." },
+  { key: "volume", name: "Volume", what: "ETH traded", test: /volume|eth/i, fallback: "Sets how saturated the colours are." },
+  { key: "churn", name: "Churn", what: "listings opened or cancelled", test: /churn|listing/i, fallback: "Sets how restless the picture is." },
+  { key: "wallets", name: "Wallets", what: "distinct buyers and sellers", test: /wallet|trader|buyer/i, fallback: "Sets how many separate things share the picture." },
+  { key: "volatility", name: "Volatility", what: "how widely the price swung", test: /volatil|swing/i, fallback: "Sets how far the colours spread." },
+  { key: "day", name: "Day", what: "how far through the week", test: /schedule|^day/i, fallback: "Reveals more of the picture as the week goes on." },
+  { key: "colour", name: "Colour", what: "", test: /^colou?r$/i, fallback: "" },
+  { key: "glitch", name: "Glitch", what: "", test: /^glitch$/i, fallback: "" },
+];
 
 export default function DatagramsView({ week, days: initialDays, isLive, initialLive, fallback, earlier }: { week: Week | null; days: Stats[]; isLive: boolean; initialLive: Live | null; fallback: Fallback | null; earlier: { weekKey: string; title: string }[] }) {
   const frame = useRef<HTMLIFrameElement>(null);
@@ -31,9 +34,6 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
   const [meta, setMeta] = useState<Meta | null>(null);
   const [liveMode, setLiveMode] = useState(isLive);             // true = follow "today"; false = a past day was clicked
   const [picked, setPicked] = useState(Math.max(0, initialDays.length - 1));
-  const [fresh, setFresh] = useState<Set<string>>(new Set());
-  const [now, setNow] = useState<number>(initialLive?.now ?? 0); // time-dependent text waits for the browser so server and client markup match
-  const prev = useRef<Live | null>(initialLive);
 
   const days: Stats[] = isLive && live ? live.days : initialDays;
   const sel = liveMode ? days.length - 1 : Math.min(picked, days.length - 1);
@@ -68,7 +68,7 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
     frame.current?.contentWindow?.postMessage({ type: "stats", stats: payload, seed: seedFromHash(shown.sha256), id: shown.sha256 }, "*");
   }, [payload, shown]);
 
-  /* the market: ask our own server every 30 s; tick the "x ago" labels every 15 s */
+  /* the market: ask our own server every 30 s */
   useEffect(() => {
     if (!isLive) return;
     let alive = true;
@@ -77,27 +77,26 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
         const r = await fetch("/api/datagrams/live", { cache: "no-store" });
         if (!r.ok) return;
         const d: Live = await r.json();
-        if (!alive) return;
-        const p = prev.current;
-        if (p) {
-          const known = new Set(p.fills.map((x) => x.id));
-          setFresh(new Set(d.fills.filter((x) => !known.has(x.id)).map((x) => x.id)));
-          window.setTimeout(() => setFresh(new Set()), 2000);
-        }
-        prev.current = d; setLive(d);
+        if (alive) setLive(d);
       } catch {}
     };
-    const a = window.setInterval(pull, 30000), b = window.setInterval(() => setNow(Date.now()), 15000);
-    setNow(Date.now()); pull();
-    return () => { alive = false; window.clearInterval(a); window.clearInterval(b); };
+    const a = window.setInterval(pull, 30000);
+    pull();
+    return () => { alive = false; window.clearInterval(a); };
   }, [isLive]);
 
   const title = usingFallback && fallback ? fallback.title : shown?.title ?? "";
-  const eyebrow = !shown ? "" : shown.genesis ? "Week one · written from no data" : `Week of ${fmtDay(shown.weekKey)} · theme from the week before`;
-  const rows = (meta?.notes ?? []).map((n, i) => { const [name, val] = n.k.split(" · "); return { i, name, val, v: n.v }; }).sort((a, b) => rank(a.name) - rank(b.name) || a.i - b.i);
-  const lede = shown?.genesis
-    ? "The world starts empty. Each line below is one number and what it does to the picture. They update as the week happens."
-    : "Last week chose the world. Each line below is one of this week's numbers and what it does to the picture. They update as the week happens."
+  const notes = (meta?.notes ?? []).map((n) => { const [name, ...rest] = n.k.split(" · "); return { name: name.trim(), val: rest.join(" · ").trim(), v: n.v }; });
+  const theme = notes.find((n) => /theme|world/i.test(n.name));
+  const themeText = theme ? [theme.val && !/^none$/i.test(theme.val) ? theme.val : "", theme.v].filter(Boolean).join(" — ") : "";
+  const values: Record<string, string> = {
+    fills: String(stats.fills), volume: eth(stats.volumeEth), churn: String(stats.churn), wallets: String(stats.wallets),
+    volatility: stats.volatility.toFixed(2), day: `${dayNo} of 7`, colour: "", glitch: "",
+  };
+  const rows = ROWS.map((r) => {
+    const n = notes.find((x) => x.name !== theme?.name && r.test.test(x.name));
+    return { ...r, value: values[r.key], text: cap(n?.v || r.fallback) };
+  });
 
   return (
     <div className="dg">
@@ -129,69 +128,52 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
       </div>
 
       <div className="dg-side">
-        <header className="dg-plate">
-          {shown ? (
-            <>
-              <div className="dg-eyebrow">Claude · {eyebrow}</div>
+        {shown ? (
+          <>
+            <header className="dg-plate">
+              <div className="dg-eyebrow">Week of {fmtDay(shown.weekKey)}</div>
               <h1 className="dg-title">{title}</h1>
               {meta?.note && <p className="dg-body">{meta.note}</p>}
+              {themeText && (
+                <p className="dg-body dg-theme">
+                  <span className="dg-eyebrow">{shown.genesis ? "Why this world" : "Why this world · from last week"}</span>
+                  {themeText}
+                </p>
+              )}
+            </header>
+
+            <section className="dg-data" aria-label="What each number does">
               <div className="dg-eyebrow dg-status">Day {dayNo} of 7{atLive ? " · live" : ""}</div>
-            </>
-          ) : (
-            <>
-              <div className="dg-eyebrow">Claude · Datagrams</div>
-              <h1 className="dg-title">Not started</h1>
-              <p className="dg-body">The first scene is written at the start of the first week and fills in as the market moves.</p>
-            </>
-          )}
-        </header>
+              <div className="dg-rows">
+                {rows.map((r) => (
+                  <div className="dg-row" key={r.key}>
+                    <div className="dg-rk">
+                      <span className="dg-name">{r.name}</span>
+                      {r.value ? <b>{r.value}</b> : null}
+                    </div>
+                    <div className="dg-rt">
+                      {r.what ? <span className="dg-what">{r.what}</span> : null}
+                      {r.text ? <p>{r.text}</p> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-        {isLive && live && (
-          <section className="dg-fillbox" aria-label="Pixel Market fills">
-            <div className="dg-fillhead">
-              <span className="dg-eyebrow">Fills this week</span>
-              <span className="dg-eyebrow">latest {Math.min(live.fills.length, live.stats.fills)} of {live.stats.fills}</span>
-            </div>
-            <ul className="dg-fills" tabIndex={0}>
-              {live.fills.map((f) => (
-                <li key={f.id} className={fresh.has(f.id) ? "is-new" : ""}>
-                  <a href={`https://etherscan.io/tx/${f.tx}`} target="_blank" rel="noreferrer">
-                    <span className="dg-fpx"><b>{f.pixels}</b> px</span>
-                    <span className="dg-feth">{eth(f.totalEth)} ETH</span>
-                    <span className="dg-fago">{ago(f.ts, now)}</span>
-                  </a>
-                </li>
-              ))}
-              {!live.fills.length && <li className="dg-none">No fills yet.</li>}
-            </ul>
-          </section>
-        )}
-
-        {shown && (
-          <footer className="dg-foot">
-            Scene file · sha-256 {shown.sha256.slice(0, 12)}… <a href={`/api/datagrams/week/${shown.weekKey}`}>open</a>
-            {earlier.length > 0 && <> · Earlier weeks: {earlier.map((w, i) => (<span key={w.weekKey}>{i ? ", " : ""}<a href={`/datagrams?week=${w.weekKey}`}>{fmtDay(w.weekKey)}</a></span>))}</>}
-          </footer>
+            {earlier.length > 0 && (
+              <footer className="dg-foot">
+                Earlier weeks: {earlier.map((w, i) => (<span key={w.weekKey}>{i ? ", " : ""}<a href={`/datagrams?week=${w.weekKey}`}>{fmtDay(w.weekKey)}</a></span>))}
+              </footer>
+            )}
+          </>
+        ) : (
+          <header className="dg-plate">
+            <div className="dg-eyebrow">Datagrams</div>
+            <h1 className="dg-title">Not started</h1>
+            <p className="dg-body">The first scene is written at the start of the first week and fills in as the market moves.</p>
+          </header>
         )}
       </div>
-
-      {shown && rows.length > 0 && (
-        <section className="dg-how" aria-label="How it is made">
-          <div className="dg-eyebrow">How it's made</div>
-          <p className="dg-lede">{lede}</p>
-          <div className="dg-rows">
-            {rows.map((r) => (
-              <div className={"dg-row" + (rank(r.name) === 3 ? " is-quiet" : "")} key={r.i}>
-                <div className="dg-rk">
-                  {r.val ? <b>{r.val}</b> : null}
-                  <span>{r.name}</span>
-                </div>
-                <p className="dg-rv">{r.v}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

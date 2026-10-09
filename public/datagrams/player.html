@@ -1424,7 +1424,7 @@
     }
     initGlitch(st,prog);
     freezeEnd=0; pbx.clearRect(0,0,SIZE,SIZE);
-    S.notes.push(['colour','the base hue comes from wallets and fills, how far the colours spread from volatility, and how saturated they are from volume','']);
+    S.notes.push(['colour','the base hue is fixed by this week\'s seed, how far the colours spread comes from volatility, and how saturated they are comes from volume','']);
     var act=GNAMES.filter(function(n){return GL[n]>0.25;}).map(function(n){return n+' '+Math.round(GL[n]*100)+'%';});
     S.notes.push(['glitch','this week\'s own mix of interference ('+(act.length?act.join(', '):'barely any')+'), '+(GL.vertical?'tearing vertically':'tearing sideways')+'. Its strength comes from the week\'s numbers; exactly where it strikes is fixed by the scene\'s seed.','']);
     t0=NOW();
