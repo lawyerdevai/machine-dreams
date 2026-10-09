@@ -17,6 +17,7 @@ export function startForest(canvas: HTMLCanvasElement, opts: ForestOpts = {}) {
   const mx = Math.max(...series, 1e-9);
   const norm: number[] = series.map((v) => 0.35 + 0.65 * (v / mx)); // never a bare stump
   let flow = Math.min(1, Math.max(0, opts.flow ?? 0.55));
+  let leafPts: Pt[] = [];
   let W = 0, H = 0, dpr = 1, trees: Tree[] = [], raf = 0, alive = true, last = 0;
   const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const horizon = () => H * 0.4;
@@ -26,7 +27,7 @@ export function startForest(canvas: HTMLCanvasElement, opts: ForestOpts = {}) {
   function grow() {
     trees = [];
     const cell = (k: number) => 7 + k * 6; // glyph spacing grows toward the viewer
-    const layers = [{ k: 0.15, n: 36 }, { k: 0.4, n: 20 }, { k: 0.7, n: 11 }, { k: 1, n: 5 }];
+    const layers = [{ k: 0.15, n: 30 }, { k: 0.4, n: 17 }, { k: 0.7, n: 9 }, { k: 1, n: 5 }];
     let idx = 0;
     for (const L of layers) {
       for (let i = 0; i < L.n; i++) {
@@ -34,7 +35,7 @@ export function startForest(canvas: HTMLCanvasElement, opts: ForestOpts = {}) {
         let x = ((i + 0.3 + rnd() * 0.5) / L.n) * W;
         const sx = streamX(base), sw = streamW(base) + 30 + L.k * 50;
         if (Math.abs(x - sx) < sw) x = x < sx ? sx - sw - rnd() * 40 : sx + sw + rnd() * 40; // keep the stream clear
-        const hgt = H * (0.46 + L.k * 0.4) * norm[idx % norm.length] * (0.85 + rnd() * 0.3);
+        const hgt = H * (0.54 + L.k * 0.4) * norm[idx % norm.length] * (0.85 + rnd() * 0.3);
         const pts: Pt[] = [];
         const step = cell(L.k);
         const seg = (x0: number, y0: number, ang: number, len: number, depth: number) => {
@@ -46,7 +47,7 @@ export function startForest(canvas: HTMLCanvasElement, opts: ForestOpts = {}) {
           }
           const x1 = x0 + Math.cos(ang) * len, y1 = y0 + Math.sin(ang) * len;
           if (depth <= 0 || len < step * 2.5) {
-            const c = 6 + ((L.k * 8) | 0);
+            const c = 2 + ((L.k * 5) | 0);
             for (let j = 0; j < c; j++) { const a = rnd() * 6.28, r = rnd() * step * (1.6 + L.k * 1.2); pts.push({ x: x1 + Math.cos(a) * r, y: y1 + Math.sin(a) * r * 0.8, g: (rnd() * GLYPHS.length) | 0, k: L.k, leaf: true, ph: rnd() * 6.28 }); }
             return;
           }
@@ -60,6 +61,8 @@ export function startForest(canvas: HTMLCanvasElement, opts: ForestOpts = {}) {
       }
     }
     trees.sort((a, b) => a.k - b.k);
+    leafPts = [];
+    for (const tr of trees) if (tr.k >= 0.4) for (const p of tr.pts) if (p.leaf) leafPts.push(p);
   }
 
   function size() {
@@ -113,6 +116,28 @@ export function startForest(canvas: HTMLCanvasElement, opts: ForestOpts = {}) {
       }
     }
 
+
+    // leaves: now and then one glyph lets go of a canopy, tumbles down and fades out
+    if (!reduce && leafPts.length) {
+      const SLOTS = 5, LIFE = 9;
+      for (let i = 0; i < SLOTS; i++) {
+        const tt0 = t + i * (LIFE / SLOTS) * 1.0;
+        const n = Math.floor(tt0 / LIFE), u = (tt0 % LIFE) / LIFE;
+        if (hash(n * 97 + i * 13) > 0.7) continue;                      // some cycles nothing falls
+        const p = leafPts[(hash(n * 31 + i * 7 + 3) * leafPts.length) | 0];
+        const drop = 70 + p.k * 130;
+        const e = u * u * 0.6 + u * 0.4;                                  // starts slow, picks up
+        const x = p.x + Math.sin(u * 9 + i + n) * (10 + p.k * 14) + u * 22 * (hash(n + i) - 0.5) * 2;
+        const y = p.y + drop * e;
+        const a = Math.sin(Math.PI * Math.min(1, u * 1.15)) * 0.85;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(u * 6 + n) * 0.9 + u * 2.4);
+        ctx.font = `${Math.round(9 + p.k * 9)}px ui-monospace, Menlo, monospace`;
+        ctx.fillStyle = `rgba(45,125,70,${a})`;
+        ctx.fillText(GLYPHS[(p.g + n) % GLYPHS.length], 0, 0);
+        ctx.restore();
+      }
+    }
+
     // stream: a ribbon of glyphs running downhill toward the viewer; packets are bright heads with fading tails
     for (let y = hy + 3; y < H; ) {
       const tt = (y - hy) / (H - hy), fs = 6 + tt * 12, cx = streamX(y), sw = streamW(y);
@@ -120,16 +145,16 @@ export function startForest(canvas: HTMLCanvasElement, opts: ForestOpts = {}) {
       ctx.font = `${Math.round(fs)}px ui-monospace, Menlo, monospace`;
       const row = Math.round(y / (fs * 0.9));
       // a very pale water tint so the ribbon reads as one thing
-      ctx.fillStyle = "rgba(120,170,215,0.045)"; ctx.fillRect(cx - sw, y - fs * 0.5, sw * 2, fs * 0.95);
+      ctx.fillStyle = "rgba(100,155,210,0.09)"; ctx.fillRect(cx - sw, y - fs * 0.5, sw * 2, fs * 0.95);
       for (let c = 0; c < cols; c++) {
         const u = cols === 1 ? 0 : c / (cols - 1) - 0.5;
         const x = cx + u * sw * 2;
         const speed = (0.25 + flow * 1.1) * (0.55 + tt * 1.3) * (0.75 + hash(c * 53 + 11) * 0.5);
         const cyc = ((row * 0.22 - t * speed * 3 + hash(c * 31) * 11) % 7 + 7) % 7; // 0 = packet head
         const edge = 1 - Math.abs(u) * 0.55;
-        const a = Math.max(0.16, 1 - cyc / 4.5) * (0.4 + tt * 0.6) * edge;
+        const a = Math.max(0.3, 1 - cyc / 4.5) * (0.55 + tt * 0.45) * edge;
         const g = GLYPHS[(((row + c * 7 + Math.floor(t * (2 + flow * 7) * (hash(c) + 0.3))) % GLYPHS.length) + GLYPHS.length) % GLYPHS.length];
-        ctx.fillStyle = cyc < 0.8 ? `rgba(10,80,170,${Math.min(1, a + 0.25)})` : `rgba(35,120,195,${a * 0.8})`;
+        ctx.fillStyle = cyc < 0.8 ? `rgba(10,80,170,${Math.min(1, a + 0.25)})` : `rgba(25,100,185,${a * 0.9})`;
         ctx.fillText(g, x, y);
       }
       y += fs * 0.9;
