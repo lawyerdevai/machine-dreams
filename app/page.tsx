@@ -2,13 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { getValidArtworks } from "@/lib/redis";
 import { agentImageUrl } from "@/lib/normies";
-import { LandingHero } from "@/app/components/landing-hero";
+import { LandingNav } from "@/app/components/landing-hero";
 import { NormiePfpBadge } from "@/app/components/normie-pfp-badge";
 import { DataCharGrid } from "@/app/components/data-char-grid";
+import DataForest from "@/components/data-forest/DataForest";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 
-const HERO_POOL_SIZE = 36;
 const PREVIEW_COUNT = 12;
 
 export const dynamic = "force-dynamic";
@@ -24,12 +24,17 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
 
 export default async function Home() {
   const artworks = await getValidArtworks();
-  const heroArtworks = sampleArtworks(artworks, HERO_POOL_SIZE);
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
 
   return (
     <div className="flex flex-1 flex-col min-h-screen bg-white">
-      <LandingHero imageUrls={heroArtworks.map((a) => a.imageUrl)} />
+      <LandingNav />
+      <div
+        className="w-full overflow-hidden"
+        style={{ height: "max(360px, min(667px, 60vw))" }}
+      >
+        <DataForest />
+      </div>
 
       {/* 01 — Data as Medium */}
       <section className="w-full px-6 pt-8 md:pt-10 pb-14 md:pb-20">

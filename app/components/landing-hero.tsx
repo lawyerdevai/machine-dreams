@@ -99,7 +99,8 @@ const FRAME_SHADOW =
 const VIGNETTE =
   "radial-gradient(ellipse at center, transparent 38%, rgba(0, 0, 0, 0.18) 68%, rgba(0, 0, 0, 0.52) 100%)";
 
-function LandingNav() {
+/** Home header — kept exported so the page can use it without the gallery carousel. */
+export function LandingNav() {
   return (
     <header className="flex items-center justify-between gap-3 px-6 py-3 max-md:gap-2 max-md:px-3 max-md:py-2.5 bg-white">
       <Link
