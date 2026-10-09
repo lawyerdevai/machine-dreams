@@ -35,6 +35,21 @@ export default function DatagramsAboutPage() {
         </div>
 
         <div className="flex flex-col gap-3">
+          <SectionLabel>The schedule</SectionLabel>
+          <div className="h-px bg-[#0a0a0a] w-full" />
+          <p className={TYPE.prose}>
+            Each week begins at midnight UTC on Monday, which is Sunday at 5 PM
+            Pacific (4 PM once the clocks change in November). Within minutes,
+            the new piece is generated from the week before&apos;s totals and goes
+            live. While the week runs, the market is read about every 30 seconds,
+            and the piece updates as the numbers change. Each new day, at that
+            same time, reveals more of the picture. When Sunday ends, the week
+            closes: its totals are final, the piece is complete, and the next
+            week begins.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
           <SectionLabel>What the numbers do</SectionLabel>
           <div className="h-px bg-[#0a0a0a] w-full" />
           <p className={TYPE.prose}>
