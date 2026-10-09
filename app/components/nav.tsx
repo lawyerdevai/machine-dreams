@@ -27,7 +27,8 @@ export function Nav() {
   const onDatagrams = pathname === "/datagrams" || pathname.startsWith("/datagrams/");
   const onDatagramsIndex = pathname === "/datagrams";
   const onDatagramsAbout = pathname === "/datagrams/about";
-  const onDatagramsPiece = onDatagrams && !onDatagramsIndex && !onDatagramsAbout;
+  const onDatagramsDev = pathname === "/datagrams/dev";
+  const onDatagramsPiece = onDatagrams && !onDatagramsIndex && !onDatagramsAbout && !onDatagramsDev;
 
   if (pathname === "/") {
     return null;
@@ -44,7 +45,7 @@ export function Nav() {
         </Link>
       </div>
     );
-  } else if (onDatagramsAbout || onDatagramsPiece) {
+  } else if (onDatagramsAbout || onDatagramsPiece || onDatagramsDev) {
     right = (
       <div className="flex items-center self-center">
         <Link href="/datagrams" className="btn-nav shrink-0">
