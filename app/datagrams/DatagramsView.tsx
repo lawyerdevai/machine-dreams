@@ -101,6 +101,7 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
   return (
     <div className="dg">
       <div className="dg-art">
+        <a href="/datagrams" className="dg-back">Back to Datagrams</a>
         <div className="dg-mat">
           <div className="dg-well">
             {shown ? (
@@ -162,7 +163,7 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
 
             {earlier.length > 0 && (
               <footer className="dg-foot">
-                Earlier weeks: {earlier.map((w, i) => (<span key={w.weekKey}>{i ? ", " : ""}<a href={`/datagrams?week=${w.weekKey}`}>{fmtDay(w.weekKey)}</a></span>))}
+                Earlier weeks: {earlier.map((w, i) => (<span key={w.weekKey}>{i ? ", " : ""}<a href={`/datagrams/${w.weekKey}`}>{fmtDay(w.weekKey)}</a></span>))}
               </footer>
             )}
           </>

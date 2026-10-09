@@ -55,3 +55,41 @@
 .dg-foot { font-size: .75rem; line-height: 1.7; color: var(--quiet); }
 .dg-foot a { color: var(--quiet); text-decoration: underline; text-decoration-color: #ccc; text-underline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .dg-livedot { animation: none; } }
+
+/* piece page: back link above the art */
+.dg-back {
+  align-self: flex-start; width: 100%; max-width: 40rem;
+  font-size: .6875rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--quiet); text-decoration: none; line-height: 1.4; margin-bottom: 4px;
+}
+.dg-back:hover { color: var(--text); }
+
+/* index */
+.dg-index { display: flex; flex-direction: column; gap: 40px; max-width: 80rem; margin: 0 auto; }
+.dg-index-head { display: flex; flex-direction: column; gap: 16px; max-width: 40rem; }
+.dg-index-intro { color: var(--eyebrow); max-width: 36rem; }
+.dg-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 32px 24px;
+}
+.dg-card { margin: 0; min-width: 0; }
+.dg-card-link {
+  display: flex; flex-direction: column; gap: 12px;
+  color: inherit; text-decoration: none;
+}
+.dg-card-link:hover .dg-card-title { opacity: .7; }
+.dg-card-thumb {
+  width: 100%; aspect-ratio: 1 / 1; background: var(--well); overflow: hidden;
+  border: 1px solid var(--rule);
+}
+.dg-thumb-well, .dg-thumb-fallback { width: 100%; height: 100%; }
+.dg-thumb-well iframe {
+  width: 100%; height: 100%; border: 0; display: block;
+  pointer-events: none;
+}
+.dg-thumb-fallback { background: var(--well); }
+.dg-card-meta { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; border-top: 1px solid var(--rule); }
+.dg-card-title {
+  margin: 0; font-weight: 400; font-size: 1.125rem; line-height: 1.3;
+  letter-spacing: .04em; text-transform: uppercase;
+}
