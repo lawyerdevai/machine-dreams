@@ -4,6 +4,13 @@ import { fetchAllFills, fetchAllListings, fetchCandles, weiToEth, type MarketCan
 export const LAUNCH_WEEK = "2026-10-05"; // Pixel Market launched Monday 2026-10-05; no data exists before it
 const DAY = 86400000;
 
+/** 1-based week index since launch (LAUNCH_WEEK is week 1). */
+export function weekNumber(weekKey: string): number {
+  const launch = new Date(LAUNCH_WEEK + "T00:00:00Z").getTime();
+  const week = new Date(weekKey + "T00:00:00Z").getTime();
+  return Math.floor((week - launch) / (7 * DAY)) + 1;
+}
+
 /** Monday 00:00 UTC of the week containing `d`, as "YYYY-MM-DD". */
 export function weekKeyFor(d: Date = new Date()): string {
   const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));

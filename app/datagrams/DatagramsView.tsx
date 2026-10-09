@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { weekNumber } from "@/lib/datagrams/week";
 import "./datagrams.css";
 
 type Stats = { fills: number; volumeEth: number; churn: number; wallets: number; volatility: number };
@@ -101,7 +102,6 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
   return (
     <div className="dg">
       <div className="dg-art">
-        <a href="/datagrams" className="dg-back">Back to Datagrams</a>
         <div className="dg-mat">
           <div className="dg-well">
             {shown ? (
@@ -132,7 +132,7 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
         {shown ? (
           <>
             <header className="dg-plate">
-              <div className="dg-eyebrow">Week of {fmtDay(shown.weekKey)}</div>
+              <div className="dg-eyebrow">Week {weekNumber(shown.weekKey)} · {fmtDay(shown.weekKey)}</div>
               <h1 className="dg-title">{title}</h1>
               {meta?.note && <p className="dg-body">{meta.note}</p>}
               {themeText && (
