@@ -69,22 +69,54 @@ export default function DatagramsView({ week, days: initialDays, isLive, initial
     frame.current?.contentWindow?.postMessage({ type: "stats", stats: payload, seed: seedFromHash(shown.sha256), id: shown.sha256 }, "*");
   }, [payload, shown]);
 
-  /* the market: ask our own server every 30 s */
+  /* the market: poll every 60 s; pause while the tab is hidden; stop after the week ends */
   useEffect(() => {
     if (!isLive) return;
+    const weekEnd = initialLive?.weekEnd ?? live?.weekEnd;
+    const weekEnded = () => typeof weekEnd === "number" && weekEnd < Date.now();
+    if (weekEnded()) return;
+
     let alive = true;
+    let timer: number | null = null;
+
+    const stop = () => {
+      if (timer) { window.clearInterval(timer); timer = null; }
+    };
     const pull = async () => {
+      if (!alive || document.hidden || weekEnded()) {
+        if (weekEnded()) stop();
+        return;
+      }
       try {
-        const r = await fetch("/api/datagrams/live", { cache: "no-store" });
+        const r = await fetch("/api/datagrams/live");
         if (!r.ok) return;
         const d: Live = await r.json();
         if (alive) setLive(d);
       } catch {}
     };
-    const a = window.setInterval(pull, 30000);
-    pull();
-    return () => { alive = false; window.clearInterval(a); };
-  }, [isLive]);
+    const start = () => {
+      if (timer || weekEnded()) return;
+      timer = window.setInterval(pull, 60000);
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) { stop(); return; }
+      if (weekEnded()) { stop(); return; }
+      pull();
+      start();
+    };
+
+    if (!document.hidden) {
+      pull();
+      start();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      alive = false;
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isLive, initialLive?.weekEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const title = usingFallback && fallback ? fallback.title : shown?.title ?? "";
   const notes = (meta?.notes ?? []).map((n) => { const [name, ...rest] = n.k.split(" · "); return { name: name.trim(), val: rest.join(" · ").trim(), v: n.v }; });
