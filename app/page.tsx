@@ -46,7 +46,7 @@ const PROJECTS: HomeProject[] = [
     description:
       "At the end of each Arena season, the record of that world becomes one mural: the wars, the deaths, the elections. One season, one wall.",
     layout: "picture-left",
-    buttons: [{ label: "Coming Soon", disabled: true }],
+    buttons: [{ label: "Gallery", href: "/murals" }],
   },
 ];
 
