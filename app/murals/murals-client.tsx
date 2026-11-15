@@ -2,31 +2,67 @@
 
 import { useEffect, useState } from "react";
 
-type MuralTone = "combat" | "quiet" | "political" | "other";
+type MuralToneV1 = "combat" | "quiet" | "political" | "other";
+type MuralToneV2 = "combat" | "quiet" | "other";
 
-type MuralResult = {
+type MuralResultV1 = {
+  version: "v1";
   id: string;
   seasonId: string;
   seasonName: string;
   title: string;
   style: string;
   medium: string;
-  tone: MuralTone;
+  tone: MuralToneV1;
   moment: string;
   statement: string;
   flagged: boolean;
   imageDataUrl: string;
 };
 
-type ApiOk = {
+type MuralResultV2 = {
+  version: "v2";
+  id: string;
+  seasonId: string;
+  seasonName: string;
+  title: string;
+  style: string;
+  medium: string;
+  tone: MuralToneV2;
+  moment: string;
+  figure: string;
+  statement: string;
+  flagged: boolean;
+  imageDataUrl: string;
+};
+
+type MuralResult = MuralResultV1 | MuralResultV2;
+
+type ApiOkV1 = {
   ok: true;
   seasonId: string;
   seasonName: string;
   title: string;
   style: string;
   medium: string;
-  tone: MuralTone;
+  tone: MuralToneV1;
   moment: string;
+  statement: string;
+  flagged: boolean;
+  imageDataUrl: string;
+};
+
+type ApiOkV2 = {
+  ok: true;
+  version?: "v2";
+  seasonId: string;
+  seasonName: string;
+  title: string;
+  style: string;
+  medium: string;
+  tone: MuralToneV2;
+  moment: string;
+  figure: string;
   statement: string;
   flagged: boolean;
   imageDataUrl: string;
@@ -41,49 +77,77 @@ function timestamp() {
   return Date.now();
 }
 
-function downloadName(title: string) {
+function downloadName(title: string, version: "v1" | "v2") {
   const slug = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 48);
-  return `arena-mural-${slug || "result"}.png`;
+  return `arena-mural-${version}-${slug || "result"}.png`;
 }
 
+type RunKind = "v1" | "v2" | "v2-combat";
+
 export function MuralsClient({ isDev }: { isDev: boolean }) {
-  const [results, setResults] = useState<MuralResult[]>([]);
-  const [lastSeasonId, setLastSeasonId] = useState<string | undefined>();
-  const [usedMedia, setUsedMedia] = useState<string[]>([]);
-  const [usedStyles, setUsedStyles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [resultsV1, setResultsV1] = useState<MuralResultV1[]>([]);
+  const [resultsV2, setResultsV2] = useState<MuralResultV2[]>([]);
+
+  const [lastSeasonIdV1, setLastSeasonIdV1] = useState<string | undefined>();
+  const [usedMediaV1, setUsedMediaV1] = useState<string[]>([]);
+  const [usedStylesV1, setUsedStylesV1] = useState<string[]>([]);
+
+  const [lastSeasonIdV2, setLastSeasonIdV2] = useState<string | undefined>();
+  const [usedMediaV2, setUsedMediaV2] = useState<string[]>([]);
+  const [usedStylesV2, setUsedStylesV2] = useState<string[]>([]);
+  const [usedFiguresV2, setUsedFiguresV2] = useState<string[]>([]);
+
+  const [loading, setLoading] = useState<RunKind | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
 
   useEffect(() => {
-    if (!loading || startedAt === null) return;
+    if (loading === null || startedAt === null) return;
     const timer = window.setInterval(() => setNow(timestamp()), 250);
     return () => window.clearInterval(timer);
   }, [loading, startedAt]);
 
-  async function generate() {
-    if (loading) return;
+  async function generate(kind: RunKind) {
+    if (loading !== null) return;
     setNotice(null);
-    setLoading(true);
+    setLoading(kind);
     const start = timestamp();
     setStartedAt(start);
     setNow(start);
     try {
-      const res = await fetch("/api/murals/dev-unified", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lastSeasonId, usedMedia, usedStyles }),
-      });
+      const isV2 = kind !== "v1";
+      const res = await fetch(
+        isV2 ? "/api/murals/dev-unified-v2" : "/api/murals/dev-unified",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isV2
+              ? {
+                  lastSeasonId: lastSeasonIdV2,
+                  usedMedia: usedMediaV2,
+                  usedStyles: usedStylesV2,
+                  usedFigures: usedFiguresV2,
+                  ...(kind === "v2-combat" ? { forceTone: "combat" } : {}),
+                }
+              : {
+                  lastSeasonId: lastSeasonIdV1,
+                  usedMedia: usedMediaV1,
+                  usedStyles: usedStylesV1,
+                }
+          ),
+        }
+      );
       if (res.status === 404) {
         setNotice("This tool is only available in development.");
         return;
       }
-      const data = (await res.json()) as ApiOk | ApiFail;
+      const data = (await res.json()) as ApiOkV1 | ApiOkV2 | ApiFail;
       if (!("ok" in data) || data.ok !== true) {
         setNotice(
           "message" in data && data.message
@@ -92,41 +156,85 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
         );
         return;
       }
-      setLastSeasonId(data.seasonId);
-      setUsedMedia((prev) => [data.medium, ...prev].slice(0, 10));
-      setUsedStyles((prev) => [data.style, ...prev].slice(0, 10));
-      setResults((prev) => [
-        {
-          id: `${timestamp()}-${data.title}`,
-          seasonId: data.seasonId,
-          seasonName: data.seasonName,
-          title: data.title,
-          style: data.style,
-          medium: data.medium,
-          tone: data.tone,
-          moment: data.moment,
-          statement: data.statement,
-          flagged: data.flagged,
-          imageDataUrl: data.imageDataUrl,
-        },
-        ...prev,
-      ]);
+
+      if (isV2) {
+        const v2 = data as ApiOkV2;
+        if (typeof v2.figure !== "string" || !v2.figure.trim()) {
+          setNotice("The mural brief could not be read. Try again.");
+          return;
+        }
+        setLastSeasonIdV2(v2.seasonId);
+        setUsedMediaV2((prev) => [v2.medium, ...prev].slice(0, 10));
+        setUsedStylesV2((prev) => [v2.style, ...prev].slice(0, 10));
+        setUsedFiguresV2((prev) => [v2.figure, ...prev].slice(0, 10));
+        setResultsV2((prev) => [
+          {
+            version: "v2",
+            id: `${timestamp()}-v2-${v2.title}`,
+            seasonId: v2.seasonId,
+            seasonName: v2.seasonName,
+            title: v2.title,
+            style: v2.style,
+            medium: v2.medium,
+            tone: v2.tone,
+            moment: v2.moment,
+            figure: v2.figure,
+            statement: v2.statement,
+            flagged: v2.flagged,
+            imageDataUrl: v2.imageDataUrl,
+          },
+          ...prev,
+        ]);
+      } else {
+        const v1 = data as ApiOkV1;
+        setLastSeasonIdV1(v1.seasonId);
+        setUsedMediaV1((prev) => [v1.medium, ...prev].slice(0, 10));
+        setUsedStylesV1((prev) => [v1.style, ...prev].slice(0, 10));
+        setResultsV1((prev) => [
+          {
+            version: "v1",
+            id: `${timestamp()}-v1-${v1.title}`,
+            seasonId: v1.seasonId,
+            seasonName: v1.seasonName,
+            title: v1.title,
+            style: v1.style,
+            medium: v1.medium,
+            tone: v1.tone,
+            moment: v1.moment,
+            statement: v1.statement,
+            flagged: v1.flagged,
+            imageDataUrl: v1.imageDataUrl,
+          },
+          ...prev,
+        ]);
+      }
     } catch {
       setNotice("This mural couldn't be drawn right now. Please try again.");
     } finally {
-      setLoading(false);
+      setLoading(null);
       setStartedAt(null);
     }
   }
 
   const elapsed =
     startedAt === null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
-  const toneCounts = {
-    combat: results.filter((item) => item.tone === "combat").length,
-    quiet: results.filter((item) => item.tone === "quiet").length,
-    political: results.filter((item) => item.tone === "political").length,
-    other: results.filter((item) => item.tone === "other").length,
+  const toneCountsV1 = {
+    combat: resultsV1.filter((item) => item.tone === "combat").length,
+    quiet: resultsV1.filter((item) => item.tone === "quiet").length,
+    political: resultsV1.filter((item) => item.tone === "political").length,
+    other: resultsV1.filter((item) => item.tone === "other").length,
   };
+  const toneCountsV2 = {
+    combat: resultsV2.filter((item) => item.tone === "combat").length,
+    quiet: resultsV2.filter((item) => item.tone === "quiet").length,
+    other: resultsV2.filter((item) => item.tone === "other").length,
+  };
+
+  const results: MuralResult[] = [...resultsV2, ...resultsV1].sort((a, b) => {
+    const aTime = Number(a.id.split("-")[0] ?? 0);
+    const bTime = Number(b.id.split("-")[0] ?? 0);
+    return bTime - aTime;
+  });
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-6 py-12 text-[#0a0a0a]">
@@ -145,20 +253,48 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
             DEV
           </p>
           <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-            Tones so far · combat {toneCounts.combat} · quiet {toneCounts.quiet}{" "}
-            · political {toneCounts.political} · other {toneCounts.other}
+            v1 tones · combat {toneCountsV1.combat} · quiet {toneCountsV1.quiet}{" "}
+            · political {toneCountsV1.political} · other {toneCountsV1.other}
           </p>
-          <button
-            type="button"
-            onClick={generate}
-            disabled={loading}
-            className="btn-minimal self-start disabled:opacity-40"
-          >
-            Generate dummy mural
-          </button>
+          <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+            v2 tones · combat {toneCountsV2.combat} · quiet {toneCountsV2.quiet}{" "}
+            · other {toneCountsV2.other}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => generate("v1")}
+              disabled={loading !== null}
+              className="btn-minimal disabled:opacity-40"
+            >
+              Generate dummy mural
+            </button>
+            <button
+              type="button"
+              onClick={() => generate("v2")}
+              disabled={loading !== null}
+              className="btn-minimal disabled:opacity-40"
+            >
+              Generate dummy mural (v2)
+            </button>
+            <button
+              type="button"
+              onClick={() => generate("v2-combat")}
+              disabled={loading !== null}
+              className="btn-minimal disabled:opacity-40"
+            >
+              Generate combat mural (v2)
+            </button>
+          </div>
           {loading ? (
             <p className="font-serif italic text-[#666]" aria-live="polite">
-              Drawing a mural… {elapsed}s
+              Drawing a mural
+              {loading === "v2"
+                ? " (v2)"
+                : loading === "v2-combat"
+                  ? " (v2 combat)"
+                  : ""}
+              … {elapsed}s
             </p>
           ) : null}
           {notice ? <p className="font-serif text-[#0a0a0a]">{notice}</p> : null}
@@ -181,6 +317,9 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
                 {result.title}
               </h2>
               <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                Version · {result.version}
+              </p>
+              <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
                 Season · {result.seasonName}
               </p>
               <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
@@ -195,6 +334,11 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
               <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
                 Moment · {result.moment}
               </p>
+              {result.version === "v2" ? (
+                <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                  Figure · {result.figure}
+                </p>
+              ) : null}
               {result.flagged ? (
                 <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#0a0a0a]">
                   Flagged: text or object detected
@@ -205,7 +349,7 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
               </p>
               <a
                 href={result.imageDataUrl}
-                download={downloadName(result.title)}
+                download={downloadName(result.title, result.version)}
                 className="btn-minimal self-start"
               >
                 Download
