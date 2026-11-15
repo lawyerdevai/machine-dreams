@@ -1,10 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  isArenaEnabled,
-  listArenaPortraits,
-  type ArenaPortrait,
-} from "@/lib/arena";
 import { getValidArtworks } from "@/lib/redis";
 import { agentImageUrl } from "@/lib/normies";
 import { LandingNav } from "@/app/components/landing-hero";
@@ -47,9 +42,9 @@ const PROJECTS: HomeProject[] = [
   },
   {
     id: "arena",
-    title: "Arena Portraits",
+    title: "Arena Murals",
     description:
-      "When Arena opens, every Normie can step in. Bring yours, and it's drawn mid-fight: one fighter, one moment, made from who they are.",
+      "At the end of each Arena season, the record of that world becomes one mural: the wars, the deaths, the elections. One season, one wall.",
     layout: "picture-left",
     buttons: [{ label: "Coming Soon", disabled: true }],
   },
@@ -90,7 +85,7 @@ function ArenaPaper() {
     <div className="relative aspect-square w-full max-w-[28rem] overflow-hidden border border-[#0a0a0a] bg-[#f2ead8]">
       <Image
         src="/arena-portrait.png"
-        alt="A Normie caught mid-fight, drawn in black ink"
+        alt="Black ink figure with a headband, mid-strike on cream paper"
         fill
         sizes="(max-width: 800px) 100vw, 28rem"
         className="object-cover"
@@ -109,13 +104,8 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
 }
 
 export default async function Home() {
-  const arenaEnabled = isArenaEnabled();
-  const [artworks, arenaPreview] = await Promise.all([
-    getValidArtworks(),
-    arenaEnabled ? listArenaPortraits(PREVIEW_COUNT) : Promise.resolve(null),
-  ]);
+  const artworks = await getValidArtworks();
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
-  const arenaPortraits: ArenaPortrait[] = arenaPreview?.items ?? [];
   let sectionCount = 0;
   const datagramsNumber = SHOW_DATAGRAMS_SECTION ? ++sectionCount : 0;
   const projects = PROJECTS.map((project) => ({
@@ -166,13 +156,6 @@ export default async function Home() {
 
       {projects.map((project) => {
         const isFirst = project.number === 1;
-        const buttons =
-          project.id === "arena" && arenaEnabled
-            ? [
-                { label: "Create", href: "/arena/create" },
-                { label: "Gallery", href: "/arena" },
-              ]
-            : project.buttons;
         const picture =
           project.id === "normies" ? (
             previewArtworks.length > 0 ? (
@@ -195,25 +178,6 @@ export default async function Home() {
                 ))}
               </div>
             ) : null
-          ) : project.id === "arena" && arenaEnabled && arenaPortraits.length > 0 ? (
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 max-md:gap-1 w-full max-md:max-w-[17.5rem] max-md:justify-self-start md:max-w-[28rem] md:justify-self-start max-md:[&>*:nth-child(n+7)]:hidden">
-              {arenaPortraits.map((portrait) => (
-                <Link
-                  key={portrait.tokenId}
-                  href={`/arena/${portrait.tokenId}`}
-                  className="relative aspect-square overflow-hidden bg-[#15120f] transition-opacity hover:opacity-85"
-                >
-                  <Image
-                    src={portrait.imageUrl}
-                    alt={portrait.title}
-                    fill
-                    sizes="(max-width: 768px) 28vw, 112px"
-                    className="object-cover"
-                  />
-                  <NormiePfpBadge src={agentImageUrl(portrait.tokenId)} />
-                </Link>
-              ))}
-            </div>
           ) : (
             <ArenaPaper />
           );
@@ -230,7 +194,7 @@ export default async function Home() {
             <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
               {project.description}
             </p>
-            <ProjectButtons buttons={buttons} />
+            <ProjectButtons buttons={project.buttons} />
           </div>
         );
 
