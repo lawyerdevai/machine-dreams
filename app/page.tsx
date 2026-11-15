@@ -1,5 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import {
+  isArenaEnabled,
+  listArenaPortraits,
+  type ArenaPortrait,
+} from "@/lib/arena";
 import { getValidArtworks } from "@/lib/redis";
 import { agentImageUrl } from "@/lib/normies";
 import { LandingNav } from "@/app/components/landing-hero";
@@ -10,8 +15,89 @@ import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 
 const PREVIEW_COUNT = 12;
+/** Set true to show the Data as Medium / Datagrams block on the home page. */
+const SHOW_DATAGRAMS_SECTION = false;
+
+type ProjectButton = {
+  label: string;
+  href?: string;
+  disabled?: boolean;
+};
+
+type HomeProject = {
+  id: string;
+  title: string;
+  description: string;
+  /** Which side the picture sits on at desktop width. */
+  layout: "text-left" | "picture-left";
+  buttons: ProjectButton[];
+};
+
+const PROJECTS: HomeProject[] = [
+  {
+    id: "normies",
+    title: "Normies Artworks",
+    description:
+      "Each awakened Normie is given one canvas and one chance to make a single work from the truth of who they are. What they write is rendered exactly as asked, nothing touched afterward.",
+    layout: "text-left",
+    buttons: [
+      { label: "Create", href: "/find" },
+      { label: "Gallery", href: "/gallery?category=normie" },
+    ],
+  },
+  {
+    id: "arena",
+    title: "Arena Portraits",
+    description:
+      "When Arena opens, every Normie can step in. Bring yours, and it's drawn mid-fight: one fighter, one moment, made from who they are.",
+    layout: "picture-left",
+    buttons: [{ label: "Coming Soon", disabled: true }],
+  },
+];
 
 export const dynamic = "force-dynamic";
+
+function sectionLabel(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function ProjectButtons({ buttons }: { buttons: ProjectButton[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {buttons.map((button) =>
+        button.disabled || !button.href ? (
+          <button
+            key={button.label}
+            type="button"
+            disabled
+            aria-disabled="true"
+            className="btn-minimal cursor-default opacity-40 hover:bg-white hover:text-[#0a0a0a]"
+          >
+            {button.label}
+          </button>
+        ) : (
+          <Link key={button.label} href={button.href} className="btn-minimal">
+            {button.label}
+          </Link>
+        )
+      )}
+    </div>
+  );
+}
+
+function ArenaPaper() {
+  return (
+    <div className="relative aspect-square w-full max-w-[28rem] overflow-hidden border border-[#0a0a0a] bg-[#f2ead8]">
+      <Image
+        src="/arena-portrait.png"
+        alt="A Normie caught mid-fight, drawn in black ink"
+        fill
+        sizes="(max-width: 800px) 100vw, 28rem"
+        className="object-cover"
+      />
+    </div>
+  );
+}
 
 function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
   const copy = [...artworks];
@@ -23,8 +109,19 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
 }
 
 export default async function Home() {
-  const artworks = await getValidArtworks();
+  const arenaEnabled = isArenaEnabled();
+  const [artworks, arenaPreview] = await Promise.all([
+    getValidArtworks(),
+    arenaEnabled ? listArenaPortraits(PREVIEW_COUNT) : Promise.resolve(null),
+  ]);
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
+  const arenaPortraits: ArenaPortrait[] = arenaPreview?.items ?? [];
+  let sectionCount = 0;
+  const datagramsNumber = SHOW_DATAGRAMS_SECTION ? ++sectionCount : 0;
+  const projects = PROJECTS.map((project) => ({
+    ...project,
+    number: ++sectionCount,
+  }));
 
   return (
     <div className="flex flex-1 flex-col min-h-screen bg-white">
@@ -36,7 +133,8 @@ export default async function Home() {
         <DataForest />
       </div>
 
-      {/* 01 — Data as Medium */}
+      {/* Data as Medium — hidden while SHOW_DATAGRAMS_SECTION is false */}
+      {SHOW_DATAGRAMS_SECTION ? (
       <section className="w-full px-6 pt-8 md:pt-10 pb-14 md:pb-20">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
           <div className="w-full min-w-0 order-2 md:order-1">
@@ -45,7 +143,7 @@ export default async function Home() {
           <div className="flex flex-col gap-5 md:gap-6 order-1 md:order-2">
             <div className="flex flex-col gap-2">
               <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                01
+                {sectionLabel(datagramsNumber)}
               </span>
               <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
                 Data as Medium
@@ -64,56 +162,107 @@ export default async function Home() {
           </div>
         </div>
       </section>
+      ) : null}
 
-      {/* 02 — Normies Artworks */}
-      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-start">
-          <div className="flex flex-col gap-8">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                02
-              </span>
-              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
-                Normies Artworks
-              </h2>
-            </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              Each awakened Normie is given one canvas and one chance to make a
-              single work from the truth of who they are. What they write is
-              rendered exactly as asked, nothing touched afterward.
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link href="/find" className="btn-minimal">
-                Create
-              </Link>
-              <Link href="/gallery?category=normie" className="btn-minimal">
-                Gallery
-              </Link>
-            </div>
-          </div>
-
-          {previewArtworks.length > 0 ? (
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 max-md:gap-1 w-full max-md:max-w-[17.5rem] max-md:justify-self-start md:max-w-[28rem] md:justify-self-end max-md:[&>*:nth-child(n+7)]:hidden">
-              {previewArtworks.map((artwork) => (
+      {projects.map((project) => {
+        const isFirst = project.number === 1;
+        const buttons =
+          project.id === "arena" && arenaEnabled
+            ? [
+                { label: "Create", href: "/arena/create" },
+                { label: "Gallery", href: "/arena" },
+              ]
+            : project.buttons;
+        const picture =
+          project.id === "normies" ? (
+            previewArtworks.length > 0 ? (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 max-md:gap-1 w-full max-md:max-w-[17.5rem] max-md:justify-self-start md:max-w-[28rem] md:justify-self-end max-md:[&>*:nth-child(n+7)]:hidden">
+                {previewArtworks.map((artwork) => (
+                  <Link
+                    key={artwork.tokenId}
+                    href={`/artwork/${artwork.tokenId}`}
+                    className="relative aspect-square overflow-hidden bg-[#0a0a0a] transition-opacity hover:opacity-85"
+                  >
+                    <Image
+                      src={artwork.imageUrl}
+                      alt={artwork.title}
+                      fill
+                      sizes="(max-width: 768px) 28vw, 112px"
+                      className="object-cover"
+                    />
+                    <NormiePfpBadge src={agentImageUrl(artwork.tokenId)} />
+                  </Link>
+                ))}
+              </div>
+            ) : null
+          ) : project.id === "arena" && arenaEnabled && arenaPortraits.length > 0 ? (
+            <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 max-md:gap-1 w-full max-md:max-w-[17.5rem] max-md:justify-self-start md:max-w-[28rem] md:justify-self-start max-md:[&>*:nth-child(n+7)]:hidden">
+              {arenaPortraits.map((portrait) => (
                 <Link
-                  key={artwork.tokenId}
-                  href={`/artwork/${artwork.tokenId}`}
-                  className="relative aspect-square overflow-hidden bg-[#0a0a0a] transition-opacity hover:opacity-85"
+                  key={portrait.tokenId}
+                  href={`/arena/${portrait.tokenId}`}
+                  className="relative aspect-square overflow-hidden bg-[#15120f] transition-opacity hover:opacity-85"
                 >
                   <Image
-                    src={artwork.imageUrl}
-                    alt={artwork.title}
+                    src={portrait.imageUrl}
+                    alt={portrait.title}
                     fill
                     sizes="(max-width: 768px) 28vw, 112px"
                     className="object-cover"
                   />
-                  <NormiePfpBadge src={agentImageUrl(artwork.tokenId)} />
+                  <NormiePfpBadge src={agentImageUrl(portrait.tokenId)} />
                 </Link>
               ))}
             </div>
-          ) : null}
-        </div>
-      </section>
+          ) : (
+            <ArenaPaper />
+          );
+        const copy = (
+          <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
+                {sectionLabel(project.number)}
+              </span>
+              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
+                {project.title}
+              </h2>
+            </div>
+            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
+              {project.description}
+            </p>
+            <ProjectButtons buttons={buttons} />
+          </div>
+        );
+
+        return (
+          <section
+            key={project.id}
+            className={
+              isFirst
+                ? "w-full px-6 pt-8 md:pt-10 pb-14 md:pb-20"
+                : "w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14"
+            }
+          >
+            <div
+              className={`max-w-6xl mx-auto grid grid-cols-1 gap-10 min-[800px]:grid-cols-2 min-[800px]:gap-12 ${
+                project.layout === "picture-left" ? "items-center" : "items-start"
+              }`}
+            >
+              {project.layout === "picture-left" ? (
+                <>
+                  {picture}
+                  {copy}
+                </>
+              ) : (
+                <>
+                  {copy}
+                  {picture}
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

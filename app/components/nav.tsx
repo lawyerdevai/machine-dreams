@@ -23,6 +23,8 @@ const NAV_CAPTION =
 export function Nav() {
   const pathname = usePathname();
   const onGallery = pathname === "/gallery";
+  const onArena = pathname === "/arena" || pathname.startsWith("/arena/");
+  const onArenaGallery = pathname === "/arena";
   const onAbout = pathname === "/about";
   const onDatagrams = pathname === "/datagrams" || pathname.startsWith("/datagrams/");
   const onDatagramsIndex = pathname === "/datagrams";
@@ -51,6 +53,29 @@ export function Nav() {
         <Link href="/datagrams" className="btn-nav shrink-0">
           Gallery
         </Link>
+      </div>
+    );
+  } else if (onArena) {
+    right = (
+      <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <ConnectWalletButton />
+          {onArenaGallery ? (
+            <Link href="/arena/create" className="btn-nav shrink-0">
+              Create
+            </Link>
+          ) : (
+            <Link href="/arena" className="btn-nav shrink-0">
+              Gallery
+            </Link>
+          )}
+          <Link href="/" className="btn-nav shrink-0">
+            Home
+          </Link>
+        </div>
+        <p className={`${NAV_CAPTION} text-right`}>
+          Using a hot wallet? Delegate.xyz is supported
+        </p>
       </div>
     );
   } else {

@@ -286,3 +286,26 @@ body {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+@keyframes arena-ink-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+    filter: blur(8px);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    filter: blur(0);
+  }
+}
+
+.arena-ink-wipe {
+  animation: arena-ink-wipe 2.5s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arena-ink-wipe {
+    animation: fadeIn 0.6s ease forwards;
+    filter: none;
+    clip-path: none;
+  }
+}

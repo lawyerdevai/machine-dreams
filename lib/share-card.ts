@@ -6,7 +6,20 @@ const CARD_HEIGHT = 630;
 const OUTER = 36;
 const COL_GAP = 40;
 const PFP_SIZE = 52;
-const CARD_BG = "#fefefe";
+
+export type ShareCardPalette = {
+  background: string;
+  ink: string;
+  muted: string;
+  mat: string;
+};
+
+const DEFAULT_PALETTE: ShareCardPalette = {
+  background: "#fefefe",
+  ink: "#0a0a0a",
+  muted: "#3d3d3d",
+  mat: "#0a0a0a",
+};
 
 export type ShareCardInput = {
   artworkImageUrl: string;
@@ -15,6 +28,8 @@ export type ShareCardInput = {
   title: string;
   artistStatement: string;
   tokenId: string;
+  /** Defaults to the Machine Dreams card. Arena passes cream and ink. */
+  palette?: Partial<ShareCardPalette>;
 };
 
 function proxied(url: string) {
@@ -201,6 +216,8 @@ export async function renderShareCardPng(
 ): Promise<Blob> {
   await waitForFonts();
 
+  const palette = { ...DEFAULT_PALETTE, ...input.palette };
+
   const [artImg, pfpImg] = await Promise.all([
     loadImage(proxied(input.artworkImageUrl)),
     loadImage(proxied(input.pfpUrl)),
@@ -251,11 +268,11 @@ export async function renderShareCardPng(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas unsupported");
 
-  ctx.fillStyle = CARD_BG;
+  ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 
   // Artwork — left, full card-band height
-  ctx.fillStyle = "#0a0a0a";
+  ctx.fillStyle = palette.mat;
   ctx.fillRect(artX, artY, artSize, artSize);
   {
     const scale = Math.max(artSize / artImg.width, artSize / artImg.height);
@@ -274,7 +291,7 @@ export async function renderShareCardPng(
 
   // Attribution: PFP + name only
   ctx.drawImage(pfpImg, textLeft, y, PFP_SIZE, PFP_SIZE);
-  ctx.fillStyle = "#0a0a0a";
+  ctx.fillStyle = palette.ink;
   ctx.font = '500 28px "Cormorant Garamond", Georgia, serif';
   ctx.textBaseline = "middle";
   ctx.fillText(
@@ -286,7 +303,7 @@ export async function renderShareCardPng(
   y += PFP_SIZE + creditGap;
 
   // Title — up to 2 lines, sized to fit
-  ctx.fillStyle = "#0a0a0a";
+  ctx.fillStyle = palette.ink;
   ctx.font = `500 ${titleFit.fontSize}px "Cormorant Garamond", Georgia, serif`;
   ctx.textBaseline = "top";
   for (const line of titleFit.lines) {
@@ -297,7 +314,7 @@ export async function renderShareCardPng(
   y += titleGap;
 
   // Artist statement — full text when it fits
-  ctx.fillStyle = "#3d3d3d";
+  ctx.fillStyle = palette.muted;
   ctx.font = '400 22px "Cormorant Garamond", Georgia, serif';
   for (const line of statementLines) {
     ctx.fillText(line, textLeft, y);
@@ -328,11 +345,15 @@ export function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function shareCardFilename(tokenId: string, title: string) {
+export function shareCardFilename(
+  tokenId: string,
+  title: string,
+  prefix = "machine-dreams"
+) {
   const slug = uppercaseTitle(title)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 48);
-  return `machine-dreams-${tokenId}${slug ? `-${slug}` : ""}.png`;
+  return `${prefix}-${tokenId}${slug ? `-${slug}` : ""}.png`;
 }
