@@ -110,15 +110,16 @@ export const DUMMY_SEASONS_V2: readonly DummySeasonV2[] = [
   },
 ];
 
+/** War / violence only. Ballot, vote, and election are ignored. */
 const COMBAT_KEYWORDS =
-  /\b(war|battle|killed|siege|betrayal|raid|clash|grappled|shove|charge|fight|combat)\b/i;
+  /\b(war|battle|killed|siege|betrayal|raid|clash|grappled|charge|fight|combat)\b/i;
 
 export function seasonIdOfV2(season: DummySeasonV2) {
   return String(season.season);
 }
 
 export function isViolentSeason(season: DummySeasonV2) {
-  if (season.tags.includes("violence") || season.tags.includes("war")) {
+  if (season.tags.includes("war") || season.tags.includes("violence")) {
     return true;
   }
   const blob = `${season.war} ${season.deaths} ${season.events} ${season.clashes}`;
