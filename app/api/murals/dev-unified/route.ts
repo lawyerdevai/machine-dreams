@@ -37,7 +37,7 @@ Rules:
 - Show characters as their faction type (Human, Cat, Alien, Agent, Zombie), not as specific individuals; the named character belongs in the moment line and the statement.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together.
 - Do not resemble these looks already used: ${used}.
-- The image IS the artwork: flat, straight-on, filling the entire frame edge to edge. It is not a photograph of an object. No cloth hanging from a wall, no frame, no wall, no room, no surface the art sits on, no scenery around it.
+- The image IS the artwork: flat, straight-on, filling the entire frame edge to edge. It is not a photograph of an object. No cloth hanging from a wall, no frame, no wall, no room, no surface the art sits on, no scenery around it. No paper edges, deckled edges, borders, margins, or visible paper or canvas texture beyond the artwork itself; the picture runs to the very edge of the frame.
 - ABSOLUTELY NO TEXT: no letters, words, numerals, signage, captions, or inscriptions.
 - It must not look photorealistic or like generic AI output: no glossy over-smooth render, no cinematic lighting, no fantasy illustration, no glowing swords, no epic battle poster look. Digital, glitch, pixel, and hybrid looks are welcome; what is banned is the generic AI-render look.
 - Don't mention that it is AI-made.
