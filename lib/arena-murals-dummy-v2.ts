@@ -30,7 +30,7 @@ export const DUMMY_SEASONS_V2: readonly DummySeasonV2[] = [
     characters:
       "Pesh the Cat; Brakk the Zombie; Human mayor-elect Mara of Ashfall; Alien lookout Quill; Agent quartermaster Nox",
     clashes:
-      "Day 4: Zombie raiders under Brakk charged the Cat ice-shed and were driven back by stacked crates and fishing spears. Day 5: two Cat scouts grappled a Zombie runner on the frozen ditch until both fell through thin ice. Day 6: Brakk's own party turned on him beside the Maw-pit after a loot dispute, ending the warlord mid-shove.",
+      "Day 4: Zombie raiders under Brakk charged the Cat ice-shed and were driven back by stacked crates and fishing spears. Day 5: two Cat scouts grappled a Zombie runner on the frozen ditch until both fell through thin ice. Day 6: Brakk's own party turned on him beside the Maw-pit after a loot dispute, ending the warlord mid-shove. Day 4 dusk: Alien lookout Quill and three Cats held the snow-gate against a Zombie ladder party until the ladders snapped and the raiders fell back into the drift. Day 5 night: Agent quartermaster Nox locked arms with a Zombie looter on the frozen pier over a crate of salt fish; both slid under the rail and crawled out on opposite banks. Day 6 dawn: Humans of Ashfall and a Cat fishing crew collided with Brakk's rear guard at the smokehouse; the Zombies broke when the Maw's first roar scattered both sides.",
     tags: ["violence", "war"],
   },
   {
@@ -67,7 +67,7 @@ export const DUMMY_SEASONS_V2: readonly DummySeasonV2[] = [
     characters:
       "Vesk the Agent; Human bridge-captain Rhee; Cat scout-pair Tallo and Nim; Alien fire-runner Zesh; Zombie scrap-chief Gord",
     clashes:
-      "Day 2: Rhee's Humans locked shields against Vesk's Agents on the stone bridge until both sides jammed in a mid-span shove. Day 4: Cats and Aliens collided in the burning grain halls, swinging hooks and wet cloth. Day 7: Gord's Zombies and Vesk's Agents grappled among scrap piles in the final stand, no victor clear when the yard collapsed.",
+      "Day 2: Rhee's Humans locked shields against Vesk's Agents on the stone bridge until both sides jammed in a mid-span shove. Day 4: Cats and Aliens collided in the burning grain halls, swinging hooks and wet cloth. Day 7: Gord's Zombies and Vesk's Agents grappled among scrap piles in the final stand, no victor clear when the yard collapsed. Day 3: Alien fire-runner Zesh and a Cat scout pair vaulted the ash ditch into an Agent supply line; the Agents shoved them back over the berm and held the wagons. Day 5: Humans under Rhee met Gord's Zombies at the dry well; a shove-and-tackle pile-on ended when both sides broke for shade, neither claiming the well. Day 6: Cats Tallo and Nim ambushed two Agents on the rooftop of the empty school and chased them down the stair until the Agents sealed the door from below.",
     tags: ["violence", "war"],
   },
   {
@@ -105,7 +105,7 @@ export const DUMMY_SEASONS_V2: readonly DummySeasonV2[] = [
     characters:
       "Kel the Human; Agent slate-lead Vorr; Cat tally-hand Sip; Alien rules-clerk Ama; Zombie door-guard Breck",
     clashes:
-      "Day 4: Agents and Humans shoved over the ballot table until the box tipped. Day 6: Breck the Zombie and two Agents locked arms at the hall doors while the false charter was pulled down. Day 6 night: a Human runner and an Agent courier collided in an alley after the count.",
+      "Day 4: Agents and Humans shoved over the ballot table until the box tipped. Day 6: Breck the Zombie and two Agents locked arms at the hall doors while the false charter was pulled down. Day 6 night: a Human runner and an Agent courier collided in an alley after the count. Day 4 evening: after the box tipped, a stampede out of the hall knocked Cat tally-hand Sip and Alien clerk Ama into the street; Agents and Humans tangled in the doorway until Breck forced a gap. Day 5: Kel's runners chased Agent slate-lead Vorr through the market stalls; crates spilled, and Vorr escaped over a cart while Cats and Humans piled after him. Day 6 noon: a rooftop standoff above the clock hall—two Agents and a Human courier froze across the ridge tiles until Breck climbed up and broke the line by yanking an Agent down the ladder.",
     tags: ["violence", "politics"],
   },
 ];

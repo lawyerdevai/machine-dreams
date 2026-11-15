@@ -12,7 +12,10 @@ import {
 } from "@/lib/arena-murals-dummy-v2";
 import { pickFigureKit, type FigureKit } from "@/lib/arena-murals-figures";
 import { pickSceneKit, type SceneKit } from "@/lib/arena-murals-scenes";
-import { pickStyleDirection } from "@/lib/arena-murals-styles";
+import {
+  pickStyleDirection,
+  styleMarksOf,
+} from "@/lib/arena-murals-styles-v2";
 
 export const maxDuration = 120;
 
@@ -35,6 +38,7 @@ function pickTargetTone(forceCombat: boolean): MuralToneV2 {
 
 function buildBrief(input: {
   startingDirection: string;
+  styleMarks: string | null;
   usedMedia: string[];
   usedFigures: string[];
   usedBeats: string[];
@@ -61,9 +65,14 @@ function buildBrief(input: {
     input.targetTone === "combat" || input.forceCombat
       ? `- When the moment is combat, show the clash itself: at least two figures in physical conflict, caught mid-action (a swing, a grapple, a charge, a block, a leap), at the instant of impact or just before unless the violence level says otherwise. Not a lone figure posing, not a victory stance, not the aftermath unless the violence level is aftermath, not a lone hero on wreckage. Keep it TV-14: stylized, no blood, no wounds, no gore, no dead bodies shown, no sexual content, no hate symbols.
 - Use the SCENE KIT as the starting shape of the moment; adapt it if the season data demands, but do not default to two figures grappling face to face. Vary the pose, direction, and distance of the conflict. The violence level applies only if the moment is combat. Keep it TV-14: no blood, no wounds, no gore, no dead bodies shown. Show impact through motion, flying debris, twisted poses, and the style itself. The blow should land, not just be threatened, unless the level says otherwise.
+- At the brawl and all-out clash levels, the blow has already connected: a body recoiling or airborne, a weapon caught mid-impact, a shove already moving someone off their feet. Show the force through the pose and the style, not through blood or wounds. At the standoff and about-to-happen levels, hold the instant before.
 - SCENE KIT: ${input.sceneKit.label}
 - Do not reuse these conflict beats: ${usedBeats}.`
       : `- The target tone is ${input.targetTone}. Ignore the SCENE KIT violence level for this run; choose a quiet or other moment that fits the season. SCENE KIT cast and camera may still shape the picture: cast ${input.sceneKit.castSize}; camera ${input.sceneKit.camera}.`;
+
+  const styleMarksRule = input.styleMarks
+    ? `- STYLE MARKS: ${input.styleMarks}. Name these in the imagePrompt right after the medium, before any figure detail.`
+    : "";
 
   return `You are making one artwork that records a season of a world called the Arena, where AI-agent Normies of five factions (Human, Cat, Alien, Agent, Zombie) live, fight, trade, vote, and die. Below is the record of the season.
 
@@ -77,6 +86,7 @@ ${combatRules}
 - FIGURE KIT: ${input.figureKit.label}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together. If two hybrid styles don't combine naturally, let the stronger one dominate.
+${styleMarksRule}
 - Do not resemble these looks already used: ${used}.
 - The image IS the artwork: flat, straight-on, filling the entire frame edge to edge. It is not a photograph of an object. No cloth hanging from a wall, no frame, no wall, no room, no surface the art sits on, no scenery around it. No paper edges, deckled edges, borders, margins, or visible paper or canvas texture beyond the artwork itself; the picture runs to the very edge of the frame.
 - ABSOLUTELY NO TEXT: no letters, words, numerals, signage, captions, or inscriptions.
@@ -193,6 +203,7 @@ async function requestBrief(input: {
   usedFigures: string[];
   usedBeats: string[];
   startingDirection: string;
+  styleMarks: string | null;
   figureKit: FigureKit;
   sceneKit: SceneKit;
   targetTone: MuralToneV2;
@@ -206,6 +217,7 @@ async function requestBrief(input: {
         role: "user",
         content: buildBrief({
           startingDirection: input.startingDirection,
+          styleMarks: input.styleMarks,
           usedMedia: input.usedMedia,
           usedFigures: input.usedFigures,
           usedBeats: input.usedBeats,
@@ -330,6 +342,7 @@ export async function POST(request: Request) {
     });
     const direction = pickStyleDirection(usedStyles);
     const startingDirection = direction.label;
+    const styleMarks = styleMarksOf(direction);
     const figureKit = pickFigureKit();
     const sceneKit = pickSceneKit(usedBeats);
 
@@ -339,6 +352,7 @@ export async function POST(request: Request) {
       usedFigures,
       usedBeats,
       startingDirection,
+      styleMarks,
       figureKit,
       sceneKit,
       targetTone,
@@ -351,6 +365,7 @@ export async function POST(request: Request) {
         usedFigures,
         usedBeats,
         startingDirection,
+        styleMarks,
         figureKit,
         sceneKit,
         targetTone,
