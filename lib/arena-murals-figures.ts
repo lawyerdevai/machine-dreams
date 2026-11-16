@@ -7,7 +7,7 @@ export const FIGURE_BUILDS = [
   "slight and angular",
   "barrel-chested",
   "long-limbed",
-  "compact and low",
+  "compact and solid",
   "hunched",
   "upright and stiff",
   "soft-bellied",

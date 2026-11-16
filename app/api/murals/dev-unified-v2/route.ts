@@ -23,7 +23,7 @@ const IMAGE_SUFFIX =
   "Flat artwork filling the entire frame. No text, no letters, no numerals, no writing of any kind. Not a photograph of an object, wall, or cloth.";
 
 const VISION_CHECK =
-  'Look at this image. Respond with JSON only: {"hasText": boolean, "isPhotoOfAnObject": boolean, "looksLikeGlossyAIRender": boolean}. hasText means any letters, numerals, or lettering-like marks. isPhotoOfAnObject means it shows a physical object, wall, cloth, frame, or room instead of flat artwork filling the frame. looksLikeGlossyAIRender is true for smooth realistic rendering of skin, fur, or fabric, soft cinematic lighting, glow, or halos instead of looking made in a physical or digital medium.';
+  'Look at this image. Respond with JSON only: {"hasText": boolean, "isPhotoOfAnObject": boolean, "looksLikeGlossyAIRender": boolean, "looksLikeChild": boolean}. hasText means any letters, numerals, or lettering-like marks. isPhotoOfAnObject means it shows a physical object, wall, cloth, frame, or room instead of flat artwork filling the frame. looksLikeGlossyAIRender is true for smooth realistic rendering of skin, fur, or fabric, soft cinematic lighting, glow, or halos instead of looking made in a physical or digital medium. looksLikeChild is true if any humanlike figure (human, android, alien, or zombie in human shape) appears to be a child or teenager, or has childlike proportions or a youthful cartoon face.';
 
 const TONES = ["combat", "quiet", "other"] as const;
 type MuralToneV2 = (typeof TONES)[number];
@@ -82,7 +82,8 @@ ${toneRule}
 ${combatRules}
 - Show characters as their faction type (Human, Cat, Alien, Agent, Zombie), not as specific individuals; the named character belongs in the moment line and the statement.
 - When two factions meet, make each faction visible in its silhouette (an alien's head shape, a cat's ears and tail, an agent's machine parts, a zombie's decay), so the two sides can be told apart. Describe each side's faction first in the imagePrompt.
-- Every figure must look specific and different from the last. Apply the FIGURE KIT to whichever faction you draw, adapting freely. A Cat can be any coat, size, age, or posture; an Alien any skin color, head shape, or number of eyes; a Human or Agent any age, build, and dress; a Zombie any stage of decay. Never default to the generic version of a faction.
+- Every figure must look specific and different from the last. Apply the FIGURE KIT to whichever faction you draw, adapting freely. A Cat can be any coat, size, or posture; an Alien any skin color, head shape, or number of eyes; a Human or Agent any adult build and dress; a Zombie any stage of decay. Never default to the generic version of a faction.
+- Humans are always clearly adult, aged 18 to 80: adult proportions, adult faces, adult builds. Never draw a human, or any humanlike figure, as a child or teenager, or with a youthful cartoon face, in any style, including manga, comics, and picture-book illustration.
 - FIGURE KIT: ${input.figureKit.label}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together. If two hybrid styles don't combine naturally, let the stronger one dominate.
@@ -247,11 +248,14 @@ async function renderFlux(prompt: string): Promise<Buffer> {
   return Buffer.from(await fetched.arrayBuffer());
 }
 
-async function checkImage(bytes: Buffer): Promise<{
+type VisionFlags = {
   hasText: boolean;
   isPhotoOfAnObject: boolean;
   looksLikeGlossyAIRender: boolean;
-}> {
+  looksLikeChild: boolean;
+};
+
+async function checkImage(bytes: Buffer): Promise<VisionFlags> {
   const jpeg = await sharp(bytes)
     .resize({ width: 1024, withoutEnlargement: true })
     .jpeg({ quality: 80 })
@@ -284,29 +288,40 @@ async function checkImage(bytes: Buffer): Promise<{
       hasText?: unknown;
       isPhotoOfAnObject?: unknown;
       looksLikeGlossyAIRender?: unknown;
+      looksLikeChild?: unknown;
     }>(text);
     return {
       hasText: parsed.hasText === true,
       isPhotoOfAnObject: parsed.isPhotoOfAnObject === true,
       looksLikeGlossyAIRender: parsed.looksLikeGlossyAIRender === true,
+      looksLikeChild: parsed.looksLikeChild === true,
     };
   } catch {
     return {
       hasText: false,
       isPhotoOfAnObject: false,
       looksLikeGlossyAIRender: false,
+      looksLikeChild: false,
     };
   }
 }
 
-function failsCheck(check: {
-  hasText: boolean;
-  isPhotoOfAnObject: boolean;
-  looksLikeGlossyAIRender: boolean;
-}) {
+function failsCheck(check: VisionFlags) {
   return (
-    check.hasText || check.isPhotoOfAnObject || check.looksLikeGlossyAIRender
+    check.hasText ||
+    check.isPhotoOfAnObject ||
+    check.looksLikeGlossyAIRender ||
+    check.looksLikeChild
   );
+}
+
+function flagsFromCheck(check: VisionFlags): string[] {
+  const flags: string[] = [];
+  if (check.hasText) flags.push("hasText");
+  if (check.isPhotoOfAnObject) flags.push("isPhotoOfAnObject");
+  if (check.looksLikeGlossyAIRender) flags.push("looksLikeGlossyAIRender");
+  if (check.looksLikeChild) flags.push("looksLikeChild");
+  return flags;
 }
 
 function stringList(value: unknown, limit: number): string[] {
@@ -383,13 +398,14 @@ export async function POST(request: Request) {
     }
 
     let bytes = await renderFlux(brief.imagePrompt);
-    let flagged = false;
+    let flags: string[] = [];
     const firstCheck = await checkImage(bytes);
     if (failsCheck(firstCheck)) {
       bytes = await renderFlux(brief.imagePrompt);
       const secondCheck = await checkImage(bytes);
-      flagged = failsCheck(secondCheck);
+      flags = flagsFromCheck(secondCheck);
     }
+    const flagged = flags.length > 0;
 
     const imageDataUrl = await toPngDataUrl(bytes);
     return NextResponse.json({
@@ -410,6 +426,7 @@ export async function POST(request: Request) {
       beat: sceneKit.beat,
       statement: brief.statement,
       flagged,
+      flags,
       imageDataUrl,
     });
   } catch {

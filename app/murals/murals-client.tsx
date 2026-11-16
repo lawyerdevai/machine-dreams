@@ -22,6 +22,7 @@ type MuralResultV2 = {
   beat: string;
   statement: string;
   flagged: boolean;
+  flags: string[];
   imageDataUrl: string;
 };
 
@@ -47,6 +48,7 @@ type MuralResultV3 = {
   texture: string | null;
   statement: string;
   flagged: boolean;
+  flags: string[];
   imageDataUrl: string;
 };
 
@@ -70,6 +72,7 @@ type ApiOkV2 = {
   beat: string;
   statement: string;
   flagged: boolean;
+  flags?: string[];
   imageDataUrl: string;
 };
 
@@ -95,6 +98,7 @@ type ApiOkV3 = {
   texture: string | null;
   statement: string;
   flagged: boolean;
+  flags?: string[];
   imageDataUrl: string;
 };
 
@@ -118,6 +122,19 @@ function downloadName(title: string, version: "v2" | "v3") {
 
 function dialLabel(value: string | null | undefined) {
   return value && value.trim() ? value : "left to the artist";
+}
+
+function parseFlags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function flaggedLine(flags: string[]) {
+  if (flags.length === 0) return "Flagged";
+  return `Flagged: ${flags.join(", ")}`;
 }
 
 type RunKind = "v2" | "v3";
@@ -144,6 +161,12 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
+  const [showEngineButtons, setShowEngineButtons] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setShowEngineButtons(params.get("dev") === "1");
+  }, []);
 
   useEffect(() => {
     if (loading === null || startedAt === null) return;
@@ -219,6 +242,7 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
                 typeof item === "string" && Boolean(item.trim())
             )
           : [];
+        const flags = parseFlags(v3.flags);
         setLastSeasonIdV3(v3.seasonId);
         setUsedMediaV3((prev) => [v3.medium, ...prev].slice(0, 10));
         setUsedStylesV3((prev) => [...dealtStyles, ...prev].slice(0, 20));
@@ -256,7 +280,8 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
             composition: v3.composition ?? null,
             texture: v3.texture ?? null,
             statement: v3.statement,
-            flagged: v3.flagged,
+            flagged: Boolean(v3.flagged) || flags.length > 0,
+            flags,
             imageDataUrl: v3.imageDataUrl,
           },
           ...prev,
@@ -272,6 +297,7 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
           setNotice("The mural brief could not be read. Try again.");
           return;
         }
+        const flags = parseFlags(v2.flags);
         setLastSeasonIdV2(v2.seasonId);
         setUsedMediaV2((prev) => [v2.medium, ...prev].slice(0, 10));
         setUsedStylesV2((prev) => [v2.style, ...prev].slice(0, 10));
@@ -297,7 +323,8 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
             camera: v2.camera ?? "",
             beat: v2.beat ?? "",
             statement: v2.statement,
-            flagged: v2.flagged,
+            flagged: Boolean(v2.flagged) || flags.length > 0,
+            flags,
             imageDataUrl: v2.imageDataUrl,
           },
           ...prev,
@@ -309,6 +336,10 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
       setLoading(null);
       setStartedAt(null);
     }
+  }
+
+  function generateCoinFlip() {
+    generate(Math.random() < 0.5 ? "v2" : "v3");
   }
 
   const elapsed =
@@ -357,21 +388,33 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => generate("v2")}
+              onClick={generateCoinFlip}
               disabled={loading !== null}
               className="btn-minimal disabled:opacity-40"
             >
-              Generate mural (v2)
-            </button>
-            <button
-              type="button"
-              onClick={() => generate("v3")}
-              disabled={loading !== null}
-              className="btn-minimal disabled:opacity-40"
-            >
-              Generate mural (v3)
+              Generate
             </button>
           </div>
+          {showEngineButtons ? (
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => generate("v2")}
+                disabled={loading !== null}
+                className="btn-minimal disabled:opacity-40"
+              >
+                Generate mural (v2)
+              </button>
+              <button
+                type="button"
+                onClick={() => generate("v3")}
+                disabled={loading !== null}
+                className="btn-minimal disabled:opacity-40"
+              >
+                Generate mural (v3)
+              </button>
+            </div>
+          ) : null}
           {loading ? (
             <p className="font-serif italic text-[#666]" aria-live="polite">
               Drawing a mural ({loading})… {elapsed}s
@@ -398,6 +441,9 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
               </h2>
               <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
                 Version · {result.version}
+              </p>
+              <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                Engine · {result.version === "v2" ? "V2" : "V3"}
               </p>
               <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
                 Season · {result.seasonName}
@@ -465,7 +511,7 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
               )}
               {result.flagged ? (
                 <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#0a0a0a]">
-                  Flagged: text, object, or glossy AI look
+                  {flaggedLine(result.flags)}
                 </p>
               ) : null}
               <p className="max-w-2xl font-serif leading-relaxed text-[#666]">
