@@ -35,6 +35,8 @@ export type MuralItem = {
   imageUrl: string;
   seasonId: string;
   seasonName: string;
+  /** Public season ordinal; optional on older records. */
+  seasonNumber?: number;
   createdAt: number;
   approvedAt: number | null;
   frameKind: FrameKind;
@@ -49,6 +51,7 @@ export type MuralPublicItem = {
   seasonName: string;
   createdAt: number;
   frameKind: FrameKind;
+  seasonNumber?: number;
 };
 
 export type MuralHistory = {

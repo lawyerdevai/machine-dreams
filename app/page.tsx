@@ -10,7 +10,7 @@ import { agentImageUrl } from "@/lib/normies";
 import { getValidArtworks } from "@/lib/redis";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
-import type { MuralPublicItem } from "@/lib/murals/types";
+import type { PublicMural } from "@/app/murals/public-types";
 
 const getCachedPublicMurals = unstable_cache(
   async () => fetchPublicMurals(),
@@ -51,11 +51,10 @@ const PROJECTS: HomeProject[] = [
   },
   {
     id: "arena",
-    title: "Arena Murals",
-    description:
-      "At the end of each Arena season, the record of that world becomes one mural: the wars, the deaths, the elections. One season, one wall.",
+    title: "Murals",
+    description: "Made from each season of the Normies Arena.",
     layout: "picture-left",
-    buttons: [{ label: "Gallery", href: "/murals" }],
+    buttons: [{ label: "Murals", href: "/murals" }],
   },
 ];
 
@@ -103,7 +102,7 @@ function ArenaPaper() {
   );
 }
 
-function ArenaMuralPreview({ mural }: { mural: MuralPublicItem }) {
+function ArenaMuralPreview({ mural }: { mural: PublicMural }) {
   return (
     <Link
       href="/murals"
@@ -137,7 +136,7 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
 export default async function Home() {
   const artworks = await getValidArtworks();
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
-  let newestMural: MuralPublicItem | null = null;
+  let newestMural: PublicMural | null = null;
   try {
     const murals = await getCachedPublicMurals();
     newestMural = murals[0] ?? null;

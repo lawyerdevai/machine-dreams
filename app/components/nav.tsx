@@ -12,7 +12,7 @@ const NAV_CAPTION =
 /**
  * Right-side nav cluster varies by route:
  *   /about            — logo only (empty right)
- *   /murals, /murals/[id] — Arena Murals link; no Connect / Delegate
+ *   /murals, /murals/[id] — Murals link; no Connect / Delegate
  *   /datagrams        — About → /datagrams/about
  *   /datagrams/about  — Gallery → /datagrams
  *   /datagrams/[week] — Gallery → /datagrams
@@ -20,7 +20,7 @@ const NAV_CAPTION =
  *   elsewhere         — Connect + Gallery + Delegate caption
  *
  * On /datagrams*: "MACHINE DREAMS / Datagrams" brand; no Connect / Delegate.
- * On public /murals*: dark museum bar; Machine Dreams + Arena Murals.
+ * On public /murals*: dark museum bar; Machine Dreams + Murals.
  */
 export function Nav() {
   const pathname = usePathname();
@@ -38,6 +38,7 @@ export function Nav() {
     (pathname.startsWith("/murals/") &&
       !pathname.startsWith("/murals/admin") &&
       !pathname.startsWith("/murals/lab"));
+  const onMuralsRoom = onMuralsPublic && pathname !== "/murals";
 
   if (pathname === "/") {
     return null;
@@ -46,6 +47,17 @@ export function Nav() {
   let right: ReactNode = null;
   if (onAbout) {
     right = null;
+  } else if (onMuralsRoom) {
+    right = (
+      <div className="flex items-center self-center">
+        <Link
+          href="/murals"
+          className="font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-[#9a9286] hover:text-[#e8e2d6] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7ec8e3]"
+        >
+          Gallery
+        </Link>
+      </div>
+    );
   } else if (onMuralsPublic) {
     right = null;
   } else if (onDatagramsIndex) {
@@ -139,7 +151,7 @@ export function Nav() {
             <span className="font-serif text-[0.6875rem] uppercase tracking-[0.14em] text-[#6a645c] whitespace-nowrap">
               <span aria-hidden="true">/ </span>
               <Link href="/murals" className="hover:opacity-70 transition-opacity text-[#9a9286]">
-                Arena Murals
+                Murals
               </Link>
             </span>
           )}

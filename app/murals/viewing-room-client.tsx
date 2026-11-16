@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import type { MuralPublicItem } from "@/lib/murals/types";
+import type { PublicMural } from "./public-types";
 import { MuralFrame, muralAlt } from "./mural-frame";
 import { WallLabel } from "./wall-label";
 
 type Props = {
-  item: MuralPublicItem;
+  item: PublicMural;
   newerId: string | null;
   olderId: string | null;
 };
@@ -42,7 +41,6 @@ export function ViewingRoomClient({ item, newerId, olderId }: Props) {
   return (
     <div className="murals-room">
       <div className="murals-room__nav">
-        <Link href="/murals">Back to gallery</Link>
         <button
           type="button"
           disabled={!newerId}
@@ -75,8 +73,9 @@ export function ViewingRoomClient({ item, newerId, olderId }: Props) {
             <WallLabel
               title={item.title}
               caption={item.caption}
-              seasonName={item.seasonName}
+              seasonNumber={item.seasonNumber}
               titleAs="h1"
+              align="left"
             />
           </div>
         </div>

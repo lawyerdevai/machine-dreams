@@ -8,12 +8,13 @@ function toPublic(item: {
   caption: string;
   imageUrl: string;
   seasonName: string;
+  seasonNumber?: number;
   createdAt: number;
   frameKind: MuralPublicItem["frameKind"];
   status: string;
 }): MuralPublicItem | null {
   if (item.status !== "approved") return null;
-  return {
+  const publicItem: MuralPublicItem = {
     id: item.id,
     title: item.title,
     caption: item.caption,
@@ -22,6 +23,13 @@ function toPublic(item: {
     createdAt: item.createdAt,
     frameKind: item.frameKind,
   };
+  if (
+    typeof item.seasonNumber === "number" &&
+    Number.isFinite(item.seasonNumber)
+  ) {
+    publicItem.seasonNumber = Math.trunc(item.seasonNumber);
+  }
+  return publicItem;
 }
 
 /** Public: approved murals only, newest first. */

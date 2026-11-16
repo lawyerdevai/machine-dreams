@@ -14,24 +14,24 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const item = await fetchPublicMural(id);
-    if (!item) return { title: "Arena Murals" };
+    if (!item) return { title: "Murals" };
     return {
-      title: `${item.title} | Arena Murals`,
+      title: `${item.title} | Murals`,
       description: item.caption,
       openGraph: {
-        title: `${item.title} | Arena Murals`,
+        title: `${item.title} | Murals`,
         description: item.caption,
         images: item.imageUrl ? [{ url: item.imageUrl }] : undefined,
       },
       twitter: {
         card: "summary_large_image",
-        title: `${item.title} | Arena Murals`,
+        title: `${item.title} | Murals`,
         description: item.caption,
         images: item.imageUrl ? [item.imageUrl] : undefined,
       },
     };
   } catch {
-    return { title: "Arena Murals" };
+    return { title: "Murals" };
   }
 }
 

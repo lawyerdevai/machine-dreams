@@ -12,7 +12,21 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     const seasonId =
       typeof body?.seasonId === "string" ? body.seasonId.trim() : undefined;
-    const result = await generateMural(seasonId ? { seasonId } : undefined);
+    const rawNumber = body?.seasonNumber;
+    const seasonNumber =
+      typeof rawNumber === "number" &&
+      Number.isInteger(rawNumber) &&
+      rawNumber > 0
+        ? rawNumber
+        : typeof rawNumber === "string" &&
+            /^\d+$/.test(rawNumber.trim()) &&
+            Number(rawNumber.trim()) > 0
+          ? Number(rawNumber.trim())
+          : undefined;
+    const result = await generateMural({
+      ...(seasonId ? { seasonId } : {}),
+      ...(seasonNumber !== undefined ? { seasonNumber } : {}),
+    });
     if (!result.ok) {
       return NextResponse.json(
         { error: result.error, attempts: result.attempts },

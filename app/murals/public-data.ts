@@ -1,45 +1,65 @@
 import "server-only";
 
 import { getMuralItem, listMuralItems } from "@/lib/murals/store";
-import type { MuralPublicItem } from "@/lib/murals/types";
+import type { PublicMural } from "./public-types";
+
+export type { PublicMural } from "./public-types";
 
 function toPublic(item: {
   id: string;
   title: string;
   caption: string;
   imageUrl: string;
-  seasonName: string;
+  seasonNumber?: number;
   createdAt: number;
-  frameKind: MuralPublicItem["frameKind"];
+  frameKind: PublicMural["frameKind"];
   status: string;
-}): MuralPublicItem | null {
+}): PublicMural | null {
   if (item.status !== "approved") return null;
-  return {
+  const publicItem: PublicMural = {
     id: item.id,
     title: item.title,
     caption: item.caption,
     imageUrl: item.imageUrl,
-    seasonName: item.seasonName,
     createdAt: item.createdAt,
     frameKind: item.frameKind,
   };
+  if (
+    typeof item.seasonNumber === "number" &&
+    Number.isFinite(item.seasonNumber)
+  ) {
+    publicItem.seasonNumber = Math.trunc(item.seasonNumber);
+  }
+  return publicItem;
+}
+
+/** Newest season first (seasonNumber desc), then newest createdAt. */
+export function sortPublicMurals(items: PublicMural[]): PublicMural[] {
+  return [...items].sort((a, b) => {
+    const aN = typeof a.seasonNumber === "number" ? a.seasonNumber : -Infinity;
+    const bN = typeof b.seasonNumber === "number" ? b.seasonNumber : -Infinity;
+    if (bN !== aN) return bN - aN;
+    return b.createdAt - a.createdAt;
+  });
 }
 
 /**
- * Public mural list — same fields as GET /api/murals (approved only, newest first).
+ * Public mural list — same fields as GET /api/murals (approved only).
  * Server pages call this instead of HTTP self-fetch so build/ISR stay reliable.
  */
-export async function fetchPublicMurals(): Promise<MuralPublicItem[]> {
+export async function fetchPublicMurals(): Promise<PublicMural[]> {
   const items = await listMuralItems();
-  return items
-    .map(toPublic)
-    .filter((item): item is MuralPublicItem => item !== null);
+  return sortPublicMurals(
+    items
+      .map(toPublic)
+      .filter((item): item is PublicMural => item !== null)
+  );
 }
 
 /** Same fields as GET /api/murals/[id]; null when missing or not approved. */
 export async function fetchPublicMural(
   id: string
-): Promise<MuralPublicItem | null> {
+): Promise<PublicMural | null> {
   const item = await getMuralItem(id);
   if (!item) return null;
   return toPublic(item);

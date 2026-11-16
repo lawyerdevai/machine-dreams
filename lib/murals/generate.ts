@@ -4,7 +4,9 @@ import { runV3, type RunV3Result } from "./engine-v3";
 import { frameKindFor } from "./frame";
 import { getSeasonRecord } from "./season";
 import {
+  listMuralItems,
   loadHistory,
+  nextSeasonNumber,
   saveHistory,
   saveMuralItem,
   uploadMuralPng,
@@ -29,7 +31,8 @@ type EngineOk = Extract<RunV2Result, { ok: true }> | Extract<RunV3Result, { ok: 
 
 async function saveSuccess(
   result: EngineOk,
-  history: Awaited<ReturnType<typeof loadHistory>>
+  history: Awaited<ReturnType<typeof loadHistory>>,
+  seasonNumber: number
 ): Promise<MuralItem> {
   const id = randomUUID().replace(/-/g, "").slice(0, 16);
   const imageUrl = await uploadMuralPng(id, result.imageBytes);
@@ -75,6 +78,7 @@ async function saveSuccess(
     imageUrl,
     seasonId: result.seasonId,
     seasonName: result.seasonName,
+    seasonNumber,
     createdAt,
     approvedAt: null,
     frameKind,
@@ -118,10 +122,18 @@ async function saveSuccess(
  */
 export async function generateMural(opts?: {
   seasonId?: string;
+  seasonNumber?: number;
 }): Promise<GenerateMuralResult> {
   const history = await loadHistory();
   const season = getSeasonRecord(opts?.seasonId ?? history.lastSeasonId);
   const attempts: GenerateAttemptFailure[] = [];
+
+  const seasonNumber =
+    typeof opts?.seasonNumber === "number" &&
+    Number.isInteger(opts.seasonNumber) &&
+    opts.seasonNumber > 0
+      ? opts.seasonNumber
+      : nextSeasonNumber(await listMuralItems());
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const engine = Math.random() < 0.5 ? "v2" : "v3";
@@ -157,7 +169,7 @@ export async function generateMural(opts?: {
     }
 
     try {
-      const item = await saveSuccess(result, history);
+      const item = await saveSuccess(result, history, seasonNumber);
       return { ok: true, item };
     } catch (error) {
       const message =

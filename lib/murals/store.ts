@@ -66,6 +66,20 @@ export async function listMuralItems(): Promise<MuralItem[]> {
   }
 }
 
+/** Highest stored seasonNumber + 1, or 1 if none. */
+export function nextSeasonNumber(items: MuralItem[]): number {
+  let max = 0;
+  for (const item of items) {
+    if (
+      typeof item.seasonNumber === "number" &&
+      Number.isFinite(item.seasonNumber)
+    ) {
+      max = Math.max(max, Math.trunc(item.seasonNumber));
+    }
+  }
+  return max + 1;
+}
+
 export async function updateMuralItem(
   id: string,
   patch: {
@@ -73,6 +87,7 @@ export async function updateMuralItem(
     caption?: string;
     frameKind?: FrameKind;
     status?: MuralStatus;
+    seasonNumber?: number;
   }
 ): Promise<MuralItem | null> {
   const item = await getMuralItem(id);
@@ -85,6 +100,13 @@ export async function updateMuralItem(
     next.caption = patch.caption.trim().replace(/\s+/g, " ").slice(0, 220);
   }
   if (patch.frameKind) next.frameKind = patch.frameKind;
+  if (
+    typeof patch.seasonNumber === "number" &&
+    Number.isInteger(patch.seasonNumber) &&
+    patch.seasonNumber > 0
+  ) {
+    next.seasonNumber = patch.seasonNumber;
+  }
   if (patch.status) {
     next.status = patch.status;
     if (patch.status === "approved") {

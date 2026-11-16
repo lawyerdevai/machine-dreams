@@ -30,6 +30,7 @@ export async function PATCH(
     caption?: string;
     frameKind?: FrameKind;
     status?: MuralStatus;
+    seasonNumber?: number;
   } = {};
 
   if (typeof body?.title === "string") patch.title = body.title;
@@ -45,6 +46,20 @@ export async function PATCH(
     (STATUSES as readonly string[]).includes(body.status)
   ) {
     patch.status = body.status as MuralStatus;
+  }
+  const rawSeasonNumber = body?.seasonNumber;
+  if (
+    typeof rawSeasonNumber === "number" &&
+    Number.isInteger(rawSeasonNumber) &&
+    rawSeasonNumber > 0
+  ) {
+    patch.seasonNumber = rawSeasonNumber;
+  } else if (
+    typeof rawSeasonNumber === "string" &&
+    /^\d+$/.test(rawSeasonNumber.trim()) &&
+    Number(rawSeasonNumber.trim()) > 0
+  ) {
+    patch.seasonNumber = Number(rawSeasonNumber.trim());
   }
 
   const item = await updateMuralItem(id, patch);
