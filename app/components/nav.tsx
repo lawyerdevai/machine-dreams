@@ -12,6 +12,7 @@ const NAV_CAPTION =
 /**
  * Right-side nav cluster varies by route:
  *   /about            — logo only (empty right)
+ *   /murals, /murals/[id] — Arena Murals link; no Connect / Delegate
  *   /datagrams        — About → /datagrams/about
  *   /datagrams/about  — Gallery → /datagrams
  *   /datagrams/[week] — Gallery → /datagrams
@@ -19,6 +20,7 @@ const NAV_CAPTION =
  *   elsewhere         — Connect + Gallery + Delegate caption
  *
  * On /datagrams*: "MACHINE DREAMS / Datagrams" brand; no Connect / Delegate.
+ * On public /murals*: dark museum bar; Machine Dreams + Arena Murals.
  */
 export function Nav() {
   const pathname = usePathname();
@@ -31,6 +33,11 @@ export function Nav() {
   const onDatagramsAbout = pathname === "/datagrams/about";
   const onDatagramsDev = pathname === "/datagrams/dev";
   const onDatagramsPiece = onDatagrams && !onDatagramsIndex && !onDatagramsAbout && !onDatagramsDev;
+  const onMuralsPublic =
+    pathname === "/murals" ||
+    (pathname.startsWith("/murals/") &&
+      !pathname.startsWith("/murals/admin") &&
+      !pathname.startsWith("/murals/lab"));
 
   if (pathname === "/") {
     return null;
@@ -38,6 +45,8 @@ export function Nav() {
 
   let right: ReactNode = null;
   if (onAbout) {
+    right = null;
+  } else if (onMuralsPublic) {
     right = null;
   } else if (onDatagramsIndex) {
     right = (
@@ -104,15 +113,17 @@ export function Nav() {
 
   return (
     <header
-      className={`flex items-start px-6 bg-white ${
-        onGallery ? "justify-end py-2" : "justify-between py-4"
-      }`}
+      className={`flex items-start px-6 ${
+        onMuralsPublic ? "bg-[#141210]" : "bg-white"
+      } ${onGallery ? "justify-end py-2" : "justify-between py-4"}`}
     >
       {!onGallery && (
         <div className="flex min-w-0 items-baseline gap-2 self-center">
           <Link
             href="/"
-            className="nav-brand shrink-0 text-lg uppercase text-[#0a0a0a] hover:opacity-70 transition-opacity"
+            className={`nav-brand shrink-0 text-lg uppercase hover:opacity-70 transition-opacity ${
+              onMuralsPublic ? "text-[#e8e2d6]" : "text-[#0a0a0a]"
+            }`}
           >
             Machine Dreams
           </Link>
@@ -121,6 +132,14 @@ export function Nav() {
               <span aria-hidden="true">/ </span>
               <Link href="/datagrams" className="hover:opacity-70 transition-opacity">
                 Datagrams
+              </Link>
+            </span>
+          )}
+          {onMuralsPublic && (
+            <span className="font-serif text-[0.6875rem] uppercase tracking-[0.14em] text-[#6a645c] whitespace-nowrap">
+              <span aria-hidden="true">/ </span>
+              <Link href="/murals" className="hover:opacity-70 transition-opacity text-[#9a9286]">
+                Arena Murals
               </Link>
             </span>
           )}

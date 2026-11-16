@@ -1,13 +1,22 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getValidArtworks } from "@/lib/redis";
-import { agentImageUrl } from "@/lib/normies";
+import { unstable_cache } from "next/cache";
+import { fetchPublicMurals } from "@/app/murals/public-data";
 import { LandingNav } from "@/app/components/landing-hero";
 import { NormiePfpBadge } from "@/app/components/normie-pfp-badge";
 import { DataCharGrid } from "@/app/components/data-char-grid";
 import DataForest from "@/components/data-forest/DataForest";
+import { agentImageUrl } from "@/lib/normies";
+import { getValidArtworks } from "@/lib/redis";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
+import type { MuralPublicItem } from "@/lib/murals/types";
+
+const getCachedPublicMurals = unstable_cache(
+  async () => fetchPublicMurals(),
+  ["home-arena-murals"],
+  { revalidate: 300 }
+);
 
 const PREVIEW_COUNT = 12;
 /** Set true to show the Data as Medium / Datagrams block on the home page. */
@@ -94,6 +103,28 @@ function ArenaPaper() {
   );
 }
 
+function ArenaMuralPreview({ mural }: { mural: MuralPublicItem }) {
+  return (
+    <Link
+      href="/murals"
+      className="flex w-full max-w-[28rem] flex-col gap-3 transition-opacity hover:opacity-85"
+    >
+      <div className="relative aspect-[3/2] w-full overflow-hidden border border-[#0a0a0a] bg-[#0a0a0a]">
+        <Image
+          src={mural.imageUrl}
+          alt={mural.title}
+          fill
+          sizes="(max-width: 800px) 100vw, 28rem"
+          className="object-cover"
+        />
+      </div>
+      <span className="page-title text-base tracking-wide text-[#0a0a0a]">
+        {mural.title}
+      </span>
+    </Link>
+  );
+}
+
 function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
   const copy = [...artworks];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -106,6 +137,13 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
 export default async function Home() {
   const artworks = await getValidArtworks();
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
+  let newestMural: MuralPublicItem | null = null;
+  try {
+    const murals = await getCachedPublicMurals();
+    newestMural = murals[0] ?? null;
+  } catch {
+    newestMural = null;
+  }
   let sectionCount = 0;
   const datagramsNumber = SHOW_DATAGRAMS_SECTION ? ++sectionCount : 0;
   const projects = PROJECTS.map((project) => ({
@@ -178,6 +216,8 @@ export default async function Home() {
                 ))}
               </div>
             ) : null
+          ) : newestMural ? (
+            <ArenaMuralPreview mural={newestMural} />
           ) : (
             <ArenaPaper />
           );

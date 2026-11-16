@@ -1,0 +1,403 @@
+/* Arena Murals — public gallery + viewing room */
+
+.murals-page {
+  --murals-wall: #141210;
+  --murals-ink: #e8e2d6;
+  --murals-muted: #9a9286;
+  --murals-dim: #6a645c;
+  background: var(--murals-wall);
+  color: var(--murals-ink);
+  min-height: 100%;
+  flex: 1;
+}
+
+.murals-heading {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.murals-lede {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif;
+  font-weight: 400;
+  color: var(--murals-muted);
+}
+
+.murals-view-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  border: 1px solid rgba(232, 226, 214, 0.18);
+  padding: 0.2rem;
+}
+
+.murals-view-toggle button {
+  font-family: var(--font-space-mono), "Space Mono", monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.85rem;
+  color: var(--murals-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.murals-view-toggle button[aria-pressed="true"] {
+  color: var(--murals-wall);
+  background: var(--murals-ink);
+}
+
+.murals-view-toggle button:focus-visible {
+  outline: 2px solid #7ec8e3;
+  outline-offset: 2px;
+}
+
+/* —— Spotlit hang —— */
+.murals-hang {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.murals-hang__spot {
+  position: absolute;
+  inset: -12% -18% auto;
+  height: 70%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 35%,
+    rgba(255, 244, 220, 0.14) 0%,
+    rgba(255, 244, 220, 0.05) 42%,
+    transparent 72%
+  );
+  z-index: 0;
+}
+
+.murals-hang__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  width: 100%;
+}
+
+.murals-hang__shadow {
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* —— Frames (CSS only) —— */
+.mural-frame {
+  display: block;
+  width: 100%;
+  line-height: 0;
+}
+
+.mural-frame__inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+.mural-frame--print {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: #f7f7f5;
+  padding: 0.55rem;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.mural-frame--ink {
+  background:
+    linear-gradient(135deg, #f3ebe0 0%, #ebe2d4 48%, #e6dccb 100%);
+  padding: 0.85rem 0.75rem 0.95rem;
+  border: 1px solid rgba(90, 70, 40, 0.35);
+  border-radius: 1px 2px 1px 3px / 2px 1px 3px 1px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.25) inset,
+    1px 2px 0 rgba(60, 40, 20, 0.08);
+}
+
+.mural-frame--glitch {
+  background: linear-gradient(160deg, #4a4a4e 0%, #2e2e32 55%, #3c3c40 100%);
+  padding: 0.28rem;
+  border: 1px solid #6a6a70;
+  box-shadow:
+    0 0 0 1px rgba(200, 200, 205, 0.4),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.mural-frame--painting {
+  background:
+    linear-gradient(145deg, #c9a44a 0%, #8a6a22 28%, #e0c878 52%, #6e5418 78%, #b8923c 100%);
+  padding: 0.72rem;
+  border: 2px solid #5a4210;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 230, 160, 0.35),
+    inset 0 0 0 5px rgba(80, 50, 10, 0.45),
+    0 2px 0 rgba(255, 220, 140, 0.2);
+}
+
+.mural-frame--painting .mural-frame__inner {
+  box-shadow: inset 0 0 0 1px rgba(40, 25, 5, 0.5);
+}
+
+.mural-frame--schematic {
+  background: #0a2740;
+  padding: 0.4rem;
+  border: 1px solid #3a7ab0;
+  box-shadow:
+    inset 0 0 0 1px rgba(120, 190, 255, 0.25),
+    0 0 0 1px rgba(20, 60, 100, 0.6);
+  position: relative;
+}
+
+.mural-frame--schematic::before,
+.mural-frame--schematic::after {
+  content: "";
+  position: absolute;
+  background: repeating-linear-gradient(
+    to right,
+    #5aa0d0 0 1px,
+    transparent 1px 6px
+  );
+  height: 3px;
+  left: 0.4rem;
+  right: 0.4rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.mural-frame--schematic::before {
+  top: 0.12rem;
+}
+
+.mural-frame--schematic::after {
+  bottom: 0.12rem;
+}
+
+.mural-frame--craft {
+  background:
+    linear-gradient(160deg, #6b4a2a 0%, #4a3018 40%, #7a5530 100%);
+  padding: 0.35rem;
+  border: 1px solid #2a180c;
+  box-shadow: inset 0 0 0 1px rgba(210, 170, 110, 0.25);
+}
+
+.mural-frame--craft .mural-frame__mat {
+  background:
+    radial-gradient(ellipse at 30% 20%, #d9c4a0 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 70%, #c4a882 0%, transparent 50%),
+    linear-gradient(180deg, #cbb892 0%, #b89f78 100%);
+  padding: 1.15rem 1rem;
+}
+
+.mural-frame--plain {
+  background: #1a1a1a;
+  padding: 0.22rem;
+  border: 1px solid #3d3d3d;
+  box-shadow: 0 0 0 1px rgba(210, 210, 210, 0.22);
+}
+
+.mural-frame__mat {
+  display: block;
+}
+
+/* —— Wall label —— */
+.murals-label {
+  width: 100%;
+  max-width: 22rem;
+  text-align: left;
+}
+
+.murals-label__title {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif;
+  font-size: 1.15rem;
+  line-height: 1.25;
+  font-weight: 500;
+  color: var(--murals-ink);
+  margin: 0 0 0.35rem;
+}
+
+.murals-label__caption {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--murals-muted);
+  margin: 0 0 0.55rem;
+}
+
+.murals-label__meta {
+  font-family: var(--font-space-mono), "Space Mono", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--murals-dim);
+  margin: 0;
+}
+
+/* —— Wall (horizontal exhibition) —— */
+.murals-wall {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5rem;
+  padding: 0.5rem 1.25rem 3rem;
+}
+
+@media (min-width: 768px) {
+  .murals-wall {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 1.5rem 8vw 3.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(232, 226, 214, 0.25) transparent;
+  }
+
+  .murals-wall__item {
+    flex: 0 0 auto;
+    width: min(52vw, 34rem);
+    scroll-snap-align: center;
+    padding: 0 3.5vw;
+  }
+}
+
+@media (max-width: 767px) {
+  .murals-wall__item {
+    width: 100%;
+    max-width: 26rem;
+    margin-inline: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .murals-wall {
+    scroll-behavior: auto;
+  }
+}
+
+/* —— Grid —— */
+.murals-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem 1.25rem;
+  padding: 0.5rem 1.25rem 3rem;
+  max-width: 72rem;
+  margin-inline: auto;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .murals-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .murals-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.murals-grid__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.murals-grid__item:focus-visible {
+  outline: 2px solid #7ec8e3;
+  outline-offset: 4px;
+}
+
+.murals-grid__title {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif;
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--murals-ink);
+  margin: 0;
+}
+
+/* —— Viewing room —— */
+.murals-room {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 1.25rem 3rem;
+  gap: 1.5rem;
+}
+
+.murals-room__work {
+  width: min(100%, 52rem);
+}
+
+.murals-room__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1.25rem;
+  font-family: var(--font-space-mono), "Space Mono", monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.murals-room__nav a,
+.murals-room__nav button {
+  color: var(--murals-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0.35rem 0.15rem;
+}
+
+.murals-room__nav a:hover,
+.murals-room__nav button:hover {
+  color: var(--murals-ink);
+}
+
+.murals-room__nav a:focus-visible,
+.murals-room__nav button:focus-visible {
+  outline: 2px solid #7ec8e3;
+  outline-offset: 3px;
+}
+
+.murals-room__nav button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.murals-empty {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif;
+  color: var(--murals-muted);
+  font-size: 1.05rem;
+  padding: 3rem 1.5rem 4rem;
+  text-align: center;
+}
+
+.murals-link-reset {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  width: 100%;
+}
+
+.murals-link-reset:focus-visible {
+  outline: 2px solid #7ec8e3;
+  outline-offset: 6px;
+}
