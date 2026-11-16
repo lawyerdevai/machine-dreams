@@ -36,7 +36,7 @@ type MuralResultV3 = {
   tone: MuralTone;
   moment: string;
   scene: string;
-  figure: string;
+  figures: string[];
   violenceLevel: string;
   castSize: string;
   beat: string;
@@ -84,7 +84,7 @@ type ApiOkV3 = {
   tone: MuralTone;
   moment: string;
   scene: string;
-  figure: string;
+  figures: string[];
   violenceLevel: string;
   castSize: string;
   beat: string;
@@ -203,12 +203,13 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
 
       if (kind === "v3") {
         const v3 = data as ApiOkV3;
-        if (
-          typeof v3.figure !== "string" ||
-          !v3.figure.trim() ||
-          typeof v3.scene !== "string" ||
-          !v3.scene.trim()
-        ) {
+        const figures = Array.isArray(v3.figures)
+          ? v3.figures.filter(
+              (item): item is string =>
+                typeof item === "string" && Boolean(item.trim())
+            )
+          : [];
+        if (figures.length === 0 || typeof v3.scene !== "string" || !v3.scene.trim()) {
           setNotice("The mural brief could not be read. Try again.");
           return;
         }
@@ -229,7 +230,7 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
             [v3.composition!, ...prev].slice(0, 8)
           );
         }
-        setUsedFiguresV3((prev) => [v3.figure, ...prev].slice(0, 10));
+        setUsedFiguresV3((prev) => [...figures, ...prev].slice(0, 10));
         if (typeof v3.beat === "string" && v3.beat.trim()) {
           setUsedBeatsV3((prev) => [v3.beat, ...prev].slice(0, 10));
         }
@@ -245,7 +246,7 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
             tone: v3.tone,
             moment: v3.moment,
             scene: v3.scene,
-            figure: v3.figure,
+            figures,
             violenceLevel: v3.violenceLevel ?? "",
             castSize: v3.castSize ?? "",
             beat: v3.beat ?? "",
@@ -448,9 +449,20 @@ export function MuralsClient({ isDev }: { isDev: boolean }) {
                   </p>
                 </>
               )}
-              <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-                Figure · {result.figure}
-              </p>
+              {result.version === "v2" ? (
+                <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                  Figure · {result.figure}
+                </p>
+              ) : (
+                result.figures.map((phrase, index) => (
+                  <p
+                    key={`${result.id}-figure-${index}`}
+                    className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]"
+                  >
+                    Figures · {phrase}
+                  </p>
+                ))
+              )}
               {result.flagged ? (
                 <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#0a0a0a]">
                   Flagged: text, object, or glossy AI look

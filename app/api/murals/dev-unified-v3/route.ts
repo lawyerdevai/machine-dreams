@@ -10,7 +10,10 @@ import {
   seasonIdOfV2,
   type DummySeasonV2,
 } from "@/lib/arena-murals-dummy-v2";
-import { pickFigureKit, type FigureKit } from "@/lib/arena-murals-figures";
+import {
+  pickFactionKits,
+  type FactionKitsV3,
+} from "@/lib/arena-murals-figures-v3";
 import { pickSceneKit, type SceneKit } from "@/lib/arena-murals-scenes";
 import {
   pickStyleMix,
@@ -47,7 +50,7 @@ function buildBrief(input: {
   usedMedia: string[];
   usedFigures: string[];
   usedBeats: string[];
-  figureKit: FigureKit;
+  factionKits: FactionKitsV3;
   sceneKit: SceneKit;
   season: DummySeasonV2;
   targetTone: MuralToneV3;
@@ -88,8 +91,9 @@ ${toneRule}
 ${combatRules}
 - Show characters as their faction type (Human, Cat, Alien, Agent, Zombie), not as specific individuals; the named character belongs in the moment line and the statement.
 - When two factions meet, make each faction visible in its silhouette (an alien's head shape, a cat's ears and tail, an agent's machine parts, a zombie's decay), so the two sides can be told apart. Describe each side's faction first in the imagePrompt.
-- Every figure must look specific and different from the last. Apply the FIGURE KIT to whichever faction you draw, adapting freely. A Cat can be any coat, size, age, or posture; an Alien any skin color, head shape, or number of eyes; a Human or Agent any age, build, and dress; a Zombie any stage of decay. Never default to the generic version of a faction.
-- FIGURE KIT: ${input.figureKit.label}
+- Every figure must look specific. Figures of different factions in the same image must differ clearly in scale and silhouette, not just in color. Never draw the generic default of any faction. Humans are always adults. Describe each figure's faction cues first in the imagePrompt.
+- FACTION KITS: Use kit A for the first figure of each faction and kit B for the second; if there are more, vary them from A and B. Each kit sets that faction's scale, form, color, and features. Follow them, adapting only where the moment demands.
+${input.factionKits.label}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together. If two hybrid styles don't combine naturally, let the stronger one dominate.
 ${styleMarksRule}
@@ -105,7 +109,7 @@ ${styleMarksRule}
 - Don't mention that it is AI-made.
 
 Respond with JSON only:
-{"title": "3-6 words", "style": "the final look in one phrase", "medium": "the medium in one phrase", "tone": "combat" | "quiet" | "other", "moment": "one sentence naming the moment and why it stands for the season", "scene": "one phrase: the beat and cast", "figure": "one sentence on the main figure's specific look", "imagePrompt": "detailed prompt for an image model; end it with: '${IMAGE_SUFFIX}'", "statement": "2-3 sentences on what this records and why it takes this form"}
+{"title": "3-6 words", "style": "the final look in one phrase", "medium": "the medium in one phrase", "tone": "combat" | "quiet" | "other", "moment": "one sentence naming the moment and why it stands for the season", "scene": "one phrase: the beat and cast", "figures": ["one short phrase per main figure: faction, scale, form, color"], "imagePrompt": "detailed prompt for an image model; end it with: '${IMAGE_SUFFIX}'", "statement": "2-3 sentences on what this records and why it takes this form"}
 
 SEASON DATA:
 ${formatSeasonRecordV2(input.season)}`;
@@ -118,7 +122,7 @@ type UnifiedBriefV3 = {
   tone: MuralToneV3;
   moment: string;
   scene: string;
-  figure: string;
+  figures: string[];
   imagePrompt: string;
   statement: string;
 };
@@ -132,6 +136,15 @@ function parseTone(value: unknown): MuralToneV3 | null {
     : null;
 }
 
+function parseFigures(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim().replace(/\s+/g, " "))
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
 function parseBrief(text: string): UnifiedBriefV3 | null {
   let parsed: {
     title?: unknown;
@@ -140,7 +153,7 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
     tone?: unknown;
     moment?: unknown;
     scene?: unknown;
-    figure?: unknown;
+    figures?: unknown;
     imagePrompt?: unknown;
     statement?: unknown;
   };
@@ -164,10 +177,7 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
       : "";
   const scene =
     typeof parsed.scene === "string" ? parsed.scene.trim().replace(/\s+/g, " ") : "";
-  const figure =
-    typeof parsed.figure === "string"
-      ? parsed.figure.trim().replace(/\s+/g, " ")
-      : "";
+  const figures = parseFigures(parsed.figures);
   const statement =
     typeof parsed.statement === "string"
       ? parsed.statement.trim().replace(/\s+/g, " ")
@@ -184,7 +194,7 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
     !medium ||
     !moment ||
     !scene ||
-    !figure ||
+    figures.length === 0 ||
     !statement ||
     !tone ||
     !imagePrompt
@@ -201,7 +211,7 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
     tone,
     moment,
     scene,
-    figure,
+    figures,
     imagePrompt,
     statement,
   };
@@ -214,7 +224,7 @@ async function requestBrief(input: {
   usedBeats: string[];
   startingDirection: string;
   styleMarks: string | null;
-  figureKit: FigureKit;
+  factionKits: FactionKitsV3;
   sceneKit: SceneKit;
   targetTone: MuralToneV3;
   forceCombat: boolean;
@@ -231,7 +241,7 @@ async function requestBrief(input: {
           usedMedia: input.usedMedia,
           usedFigures: input.usedFigures,
           usedBeats: input.usedBeats,
-          figureKit: input.figureKit,
+          factionKits: input.factionKits,
           sceneKit: input.sceneKit,
           season: input.season,
           targetTone: input.targetTone,
@@ -359,7 +369,7 @@ export async function POST(request: Request) {
     });
     const startingDirection = mix.startingDirection;
     const styleMarks = mix.styleMarks;
-    const figureKit = pickFigureKit();
+    const factionKits = pickFactionKits();
     const sceneKit = pickSceneKit(usedBeats);
 
     let brief = await requestBrief({
@@ -369,7 +379,7 @@ export async function POST(request: Request) {
       usedBeats,
       startingDirection,
       styleMarks,
-      figureKit,
+      factionKits,
       sceneKit,
       targetTone,
       forceCombat,
@@ -382,7 +392,7 @@ export async function POST(request: Request) {
         usedBeats,
         startingDirection,
         styleMarks,
-        figureKit,
+        factionKits,
         sceneKit,
         targetTone,
         forceCombat,
@@ -420,7 +430,7 @@ export async function POST(request: Request) {
       tone: brief.tone,
       moment: brief.moment,
       scene: brief.scene,
-      figure: brief.figure,
+      figures: brief.figures,
       violenceLevel: sceneKit.violenceLevel,
       castSize: sceneKit.castSize,
       beat: sceneKit.beat,
