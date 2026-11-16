@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchPublicMural, fetchPublicMurals } from "../public-data";
+import { sortSeasonMurals } from "../public-types";
 import { ViewingRoomClient } from "../viewing-room-client";
 import "../murals-gallery.css";
 
@@ -53,14 +54,26 @@ export default async function MuralViewingRoomPage({ params }: PageProps) {
 
   if (!item) notFound();
 
-  const index = items.findIndex((m) => m.id === item.id);
-  const newerId = index > 0 ? items[index - 1]!.id : null;
+  const sameKind = items.filter((m) => m.kind === item.kind);
+  const ordered =
+    item.kind === "season" ? sortSeasonMurals(sameKind) : sameKind;
+
+  const index = ordered.findIndex((m) => m.id === item.id);
+  const newerId = index > 0 ? ordered[index - 1]!.id : null;
   const olderId =
-    index >= 0 && index < items.length - 1 ? items[index + 1]!.id : null;
+    index >= 0 && index < ordered.length - 1 ? ordered[index + 1]!.id : null;
+
+  const galleryHref =
+    item.kind === "season" ? "/murals?tab=seasons" : "/murals?tab=moments";
 
   return (
     <main className="murals-page">
-      <ViewingRoomClient item={item} newerId={newerId} olderId={olderId} />
+      <ViewingRoomClient
+        item={item}
+        newerId={newerId}
+        olderId={olderId}
+        galleryHref={galleryHref}
+      />
     </main>
   );
 }

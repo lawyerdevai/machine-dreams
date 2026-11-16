@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { fetchPublicMurals } from "@/app/murals/public-data";
+import { HomeMurals, type HomeMuralSlide } from "@/app/components/home-murals";
 import { LandingNav } from "@/app/components/landing-hero";
 import { NormiePfpBadge } from "@/app/components/normie-pfp-badge";
 import { DataCharGrid } from "@/app/components/data-char-grid";
@@ -10,7 +11,6 @@ import { agentImageUrl } from "@/lib/normies";
 import { getValidArtworks } from "@/lib/redis";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
-import type { PublicMural } from "@/app/murals/public-types";
 
 const getCachedPublicMurals = unstable_cache(
   async () => fetchPublicMurals(),
@@ -52,9 +52,10 @@ const PROJECTS: HomeProject[] = [
   {
     id: "arena",
     title: "Murals",
-    description: "Made from each season of the Normies Arena.",
+    description:
+      "The Arena keeps the score. These keep the story.\nDrawn from the Normies Arena: a mural for every season, and the moments in between.",
     layout: "picture-left",
-    buttons: [{ label: "Murals", href: "/murals" }],
+    buttons: [{ label: "Gallery", href: "/murals" }],
   },
 ];
 
@@ -102,28 +103,6 @@ function ArenaPaper() {
   );
 }
 
-function ArenaMuralPreview({ mural }: { mural: PublicMural }) {
-  return (
-    <Link
-      href="/murals"
-      className="flex w-full max-w-[28rem] flex-col gap-3 transition-opacity hover:opacity-85"
-    >
-      <div className="relative aspect-[3/2] w-full overflow-hidden border border-[#0a0a0a] bg-[#0a0a0a]">
-        <Image
-          src={mural.imageUrl}
-          alt={mural.title}
-          fill
-          sizes="(max-width: 800px) 100vw, 28rem"
-          className="object-cover"
-        />
-      </div>
-      <span className="page-title text-base tracking-wide text-[#0a0a0a]">
-        {mural.title}
-      </span>
-    </Link>
-  );
-}
-
 function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
   const copy = [...artworks];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -136,12 +115,17 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
 export default async function Home() {
   const artworks = await getValidArtworks();
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
-  let newestMural: PublicMural | null = null;
+  let homeMurals: HomeMuralSlide[] = [];
   try {
     const murals = await getCachedPublicMurals();
-    newestMural = murals[0] ?? null;
+    homeMurals = murals.slice(0, 8).map((mural) => ({
+      id: mural.id,
+      imageUrl: mural.imageUrl,
+      title: mural.title,
+      caption: mural.caption,
+    }));
   } catch {
-    newestMural = null;
+    homeMurals = [];
   }
   let sectionCount = 0;
   const datagramsNumber = SHOW_DATAGRAMS_SECTION ? ++sectionCount : 0;
@@ -215,11 +199,12 @@ export default async function Home() {
                 ))}
               </div>
             ) : null
-          ) : newestMural ? (
-            <ArenaMuralPreview mural={newestMural} />
+          ) : homeMurals.length > 0 ? (
+            <HomeMurals murals={homeMurals} />
           ) : (
             <ArenaPaper />
           );
+        const descriptionLines = project.description.split("\n").filter(Boolean);
         const copy = (
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">
@@ -230,9 +215,11 @@ export default async function Home() {
                 {project.title}
               </h2>
             </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              {project.description}
-            </p>
+            <div className={`${TYPE.proseSm} text-[#666] max-w-md flex flex-col gap-3`}>
+              {descriptionLines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
             <ProjectButtons buttons={project.buttons} />
           </div>
         );

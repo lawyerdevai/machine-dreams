@@ -1,10 +1,13 @@
 import Link from "next/link";
+import type { MuralKind } from "@/lib/murals/types";
 
 type Props = {
   title: string;
   caption: string;
+  kind?: MuralKind;
   seasonNumber?: number;
-  /** When false, omit the season line (Timeline stage puts it above the frame). */
+  day?: number;
+  /** When false, omit the kind/season/day meta line (Timeline stage puts it above the image). */
   includeSeason?: boolean;
   titleAs?: "h1" | "h2" | "h3" | "p";
   /** Timeline / viewing room: left flush. Grid: centered. */
@@ -13,19 +16,38 @@ type Props = {
   viewHref?: string;
 };
 
+/** Public mono label: SEASON N, DAY N, or nothing. Never "Moment". */
+export function publicKindLabel(
+  kind: MuralKind | undefined,
+  seasonNumber?: number,
+  day?: number
+): string | null {
+  if (kind === "season") {
+    if (typeof seasonNumber === "number" && Number.isFinite(seasonNumber)) {
+      return `Season ${Math.trunc(seasonNumber)}`;
+    }
+    return "Season";
+  }
+  if (typeof day === "number" && Number.isFinite(day) && day > 0) {
+    return `Day ${Math.trunc(day)}`;
+  }
+  return null;
+}
+
 export function WallLabel({
   title,
   caption,
+  kind,
   seasonNumber,
+  day,
   includeSeason = true,
   titleAs: Tag = "h2",
   align = "left",
   viewHref,
 }: Props) {
-  const showSeason =
-    includeSeason &&
-    typeof seasonNumber === "number" &&
-    Number.isFinite(seasonNumber);
+  const meta = includeSeason
+    ? publicKindLabel(kind, seasonNumber, day)
+    : null;
 
   return (
     <div
@@ -40,9 +62,7 @@ export function WallLabel({
         ) : null}
       </div>
       {caption ? <p className="murals-label__caption">{caption}</p> : null}
-      {showSeason ? (
-        <p className="murals-label__meta">Season {Math.trunc(seasonNumber)}</p>
-      ) : null}
+      {meta ? <p className="murals-label__meta">{meta}</p> : null}
     </div>
   );
 }

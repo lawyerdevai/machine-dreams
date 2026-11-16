@@ -2,7 +2,17 @@ import { del, put } from "@vercel/blob";
 import { redis } from "@/lib/redis";
 import { blobPath, historyKey, indexKey, itemKey, NS } from "./ns";
 import type { FrameKind } from "./frame";
-import type { MuralHistory, MuralItem, MuralStatus } from "./types";
+import type {
+  MuralHistory,
+  MuralItem,
+  MuralKind,
+  MuralStatus,
+} from "./types";
+import { muralKindOf } from "./types";
+
+function normalizeItem(item: MuralItem): MuralItem {
+  return { ...item, kind: muralKindOf(item) };
+}
 
 function assertNsKey(key: string) {
   if (!key.startsWith(`${NS}:`) && !key.startsWith(`${NS}/`)) {
@@ -40,7 +50,7 @@ export async function getMuralItem(id: string): Promise<MuralItem | null> {
   assertNsKey(key);
   try {
     const item = await redis.get<MuralItem>(key);
-    return item ?? null;
+    return item ? normalizeItem(item) : null;
   } catch {
     return null;
   }
@@ -58,7 +68,9 @@ export async function listMuralItems(): Promise<MuralItem[]> {
     const rows = await redis.mget<(MuralItem | null)[]>(...keys);
     const out: MuralItem[] = [];
     for (const row of rows ?? []) {
-      if (row && typeof row === "object" && "id" in row) out.push(row);
+      if (row && typeof row === "object" && "id" in row) {
+        out.push(normalizeItem(row));
+      }
     }
     return out;
   } catch {
@@ -66,10 +78,11 @@ export async function listMuralItems(): Promise<MuralItem[]> {
   }
 }
 
-/** Highest stored seasonNumber + 1, or 1 if none. */
+/** Highest seasonNumber among season-kind records + 1, or 1 if none. */
 export function nextSeasonNumber(items: MuralItem[]): number {
   let max = 0;
   for (const item of items) {
+    if (muralKindOf(item) !== "season") continue;
     if (
       typeof item.seasonNumber === "number" &&
       Number.isFinite(item.seasonNumber)
@@ -88,6 +101,8 @@ export async function updateMuralItem(
     frameKind?: FrameKind;
     status?: MuralStatus;
     seasonNumber?: number;
+    kind?: MuralKind;
+    day?: number | null;
   }
 ): Promise<MuralItem | null> {
   const item = await getMuralItem(id);
@@ -100,12 +115,24 @@ export async function updateMuralItem(
     next.caption = patch.caption.trim().replace(/\s+/g, " ").slice(0, 220);
   }
   if (patch.frameKind) next.frameKind = patch.frameKind;
+  if (patch.kind === "season" || patch.kind === "moment") {
+    next.kind = patch.kind;
+  }
   if (
     typeof patch.seasonNumber === "number" &&
     Number.isInteger(patch.seasonNumber) &&
     patch.seasonNumber > 0
   ) {
     next.seasonNumber = patch.seasonNumber;
+  }
+  if (patch.day === null) {
+    delete next.day;
+  } else if (
+    typeof patch.day === "number" &&
+    Number.isInteger(patch.day) &&
+    patch.day > 0
+  ) {
+    next.day = patch.day;
   }
   if (patch.status) {
     next.status = patch.status;
@@ -116,7 +143,7 @@ export async function updateMuralItem(
     }
   }
   await saveMuralItem(next);
-  return next;
+  return normalizeItem(next);
 }
 
 export async function deleteMuralItem(id: string): Promise<boolean> {

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireMuralsAdmin } from "@/lib/murals/admin-auth";
 import type { FrameKind } from "@/lib/murals/frame";
 import { deleteMuralItem, updateMuralItem } from "@/lib/murals/store";
-import type { MuralStatus } from "@/lib/murals/types";
+import type { MuralKind, MuralStatus } from "@/lib/murals/types";
+import { requireMuralsAdmin } from "../guard";
 
 const FRAME_KINDS: readonly FrameKind[] = [
   "print",
@@ -20,7 +20,7 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const denied = requireMuralsAdmin(request);
+  const denied = await requireMuralsAdmin(request);
   if (denied) return denied;
 
   const { id } = await context.params;
@@ -31,6 +31,8 @@ export async function PATCH(
     frameKind?: FrameKind;
     status?: MuralStatus;
     seasonNumber?: number;
+    kind?: MuralKind;
+    day?: number | null;
   } = {};
 
   if (typeof body?.title === "string") patch.title = body.title;
@@ -47,6 +49,9 @@ export async function PATCH(
   ) {
     patch.status = body.status as MuralStatus;
   }
+  if (body?.kind === "season" || body?.kind === "moment") {
+    patch.kind = body.kind;
+  }
   const rawSeasonNumber = body?.seasonNumber;
   if (
     typeof rawSeasonNumber === "number" &&
@@ -61,6 +66,24 @@ export async function PATCH(
   ) {
     patch.seasonNumber = Number(rawSeasonNumber.trim());
   }
+  if (body?.day === null || body?.day === "") {
+    patch.day = null;
+  } else {
+    const rawDay = body?.day;
+    if (
+      typeof rawDay === "number" &&
+      Number.isInteger(rawDay) &&
+      rawDay > 0
+    ) {
+      patch.day = rawDay;
+    } else if (
+      typeof rawDay === "string" &&
+      /^\d+$/.test(rawDay.trim()) &&
+      Number(rawDay.trim()) > 0
+    ) {
+      patch.day = Number(rawDay.trim());
+    }
+  }
 
   const item = await updateMuralItem(id, patch);
   if (!item) {
@@ -73,7 +96,7 @@ export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const denied = requireMuralsAdmin(_request);
+  const denied = await requireMuralsAdmin(_request);
   if (denied) return denied;
 
   const { id } = await context.params;

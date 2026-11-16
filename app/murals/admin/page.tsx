@@ -1,31 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FrameKind } from "@/lib/murals/frame";
 import type {
   GenerateAttemptFailure,
   MuralItem,
+  MuralKind,
   MuralStatus,
+  NormieCastMember,
 } from "@/lib/murals/types";
-
-const FRAME_KINDS: FrameKind[] = [
-  "print",
-  "ink",
-  "glitch",
-  "painting",
-  "schematic",
-  "craft",
-  "plain",
-];
+import { muralKindOf } from "@/lib/murals/types";
 
 const KEY_STORAGE = "murals-admin-key";
 
 type RowDraft = {
   title: string;
   caption: string;
-  frameKind: FrameKind;
   status: MuralStatus;
+  kind: MuralKind;
   seasonNumber: string;
+  day: string;
 };
 
 function isDevEnv() {
@@ -36,9 +29,14 @@ function seasonNumberLabel(item: MuralItem): string {
   return typeof item.seasonNumber === "number" ? String(item.seasonNumber) : "";
 }
 
+function dayLabel(item: MuralItem): string {
+  return typeof item.day === "number" ? String(item.day) : "";
+}
+
 function nextSeasonFromItems(list: MuralItem[]): number {
   let max = 0;
   for (const item of list) {
+    if (muralKindOf(item) !== "season") continue;
     if (
       typeof item.seasonNumber === "number" &&
       Number.isFinite(item.seasonNumber)
@@ -53,10 +51,30 @@ function draftFromItem(item: MuralItem): RowDraft {
   return {
     title: item.title,
     caption: item.caption,
-    frameKind: item.frameKind,
     status: item.status,
+    kind: muralKindOf(item),
     seasonNumber: seasonNumberLabel(item),
+    day: dayLabel(item),
   };
+}
+
+function isTextPathRecord(item: MuralItem): boolean {
+  return Boolean(item.record.source || item.record.normieCast);
+}
+
+/** Hide seasonName in the meta line when it only repeats the season number. */
+function metaSeasonName(item: MuralItem): string | null {
+  const num = seasonNumberLabel(item);
+  const name = item.seasonName.trim();
+  if (!name) return null;
+  if (num && new RegExp(`^season\\s*${num}$`, "i").test(name)) return null;
+  return item.seasonName;
+}
+
+function castDetails(cast: NormieCastMember[] | undefined) {
+  const list = cast ?? [];
+  const unmatched = list.filter((m) => m.status !== "matched");
+  return { list, unmatched };
 }
 
 export default function MuralsAdminPage() {
@@ -77,9 +95,28 @@ export default function MuralsAdminPage() {
   const [rowConfirm, setRowConfirm] = useState<Record<string, string>>({});
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
+  const [sourceKind, setSourceKind] = useState<MuralKind>("moment");
+  const [sourceSeason, setSourceSeason] = useState("");
+  const [sourceDay, setSourceDay] = useState("");
+  const [sourceText, setSourceText] = useState("");
+  const [sourceFocus, setSourceFocus] = useState("");
+  const [testingOpen, setTestingOpen] = useState(false);
   const stopBatchRef = useRef(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
+  const nextSeasonPrefill = nextSeasonFromItems(items);
+
+  const lockAdmin = useCallback(() => {
+    try {
+      sessionStorage.removeItem(KEY_STORAGE);
+    } catch {
+      /* ignore */
+    }
+    setAdminKey("");
+    setKeyReady(false);
+    setNotice(null);
+    setItems([]);
+  }, []);
 
   useEffect(() => {
     if (isDevEnv()) {
@@ -105,13 +142,20 @@ export default function MuralsAdminPage() {
     try {
       const res = await fetch("/api/murals/admin/list", { headers: headers() });
       if (res.status === 401) {
-        setNotice("Unauthorized. Check the admin key.");
-        setKeyReady(false);
+        lockAdmin();
+        return;
+      }
+      if (res.status === 429) {
+        lockAdmin();
+        setNotice("Too many failed attempts. Try again later.");
         return;
       }
       const data = (await res.json()) as { ok?: boolean; items?: MuralItem[] };
       const list = Array.isArray(data.items) ? data.items : [];
       setItems(list);
+      setSourceSeason((prev) =>
+        prev.trim() ? prev : String(nextSeasonFromItems(list))
+      );
       const nextDrafts: Record<string, RowDraft> = {};
       for (const item of list) {
         nextDrafts[item.id] = draftFromItem(item);
@@ -122,13 +166,13 @@ export default function MuralsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [headers]);
+  }, [headers, lockAdmin]);
 
   useEffect(() => {
     if (keyReady) void refresh();
   }, [keyReady, refresh]);
 
-  function saveKey() {
+  function unlockAdmin() {
     const value = adminKey.trim();
     if (!value) return;
     sessionStorage.setItem(KEY_STORAGE, value);
@@ -157,21 +201,31 @@ export default function MuralsAdminPage() {
     }));
   }
 
-  async function requestGenerate(seasonNumber?: number): Promise<{
+  async function requestGenerate(body: {
+    kind?: MuralKind;
+    seasonNumber?: number;
+    day?: number;
+    source?: string;
+    focus?: string;
+  }): Promise<{
     ok: boolean;
     item?: MuralItem;
     error?: string;
     attempts?: GenerateAttemptFailure[];
   }> {
-    const body =
-      seasonNumber !== undefined ? JSON.stringify({ seasonNumber }) : "{}";
     const res = await fetch("/api/murals/admin/generate", {
       method: "POST",
       headers: headers(),
-      body,
+      body: JSON.stringify(body),
     });
     if (res.status === 401) {
-      return { ok: false, error: "Unauthorized. Check the admin key." };
+      lockAdmin();
+      return { ok: false };
+    }
+    if (res.status === 429) {
+      lockAdmin();
+      setNotice("Too many failed attempts. Try again later.");
+      return { ok: false };
     }
     const data = (await res.json()) as {
       ok?: boolean;
@@ -196,6 +250,10 @@ export default function MuralsAdminPage() {
       headers: headers(),
       body: JSON.stringify({ status: "approved" }),
     });
+    if (res.status === 401 || res.status === 429) {
+      lockAdmin();
+      return false;
+    }
     if (!res.ok) return false;
     const data = (await res.json().catch(() => null)) as {
       item?: MuralItem;
@@ -211,13 +269,78 @@ export default function MuralsAdminPage() {
     setFailedAttempts([]);
     setBatchErrors([]);
     try {
-      const result = await requestGenerate();
+      const result = await requestGenerate({ kind: "moment" });
       if (!result.ok || !result.item) {
         setNotice(result.error ?? "Generate failed.");
         setFailedAttempts(result.attempts ?? []);
         return;
       }
       upsertItem(result.item);
+      if (isDevEnv() && autoApprove) {
+        await approveItem(result.item.id);
+      }
+    } catch {
+      setNotice("Generate failed.");
+      setFailedAttempts([]);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function generateFromSource() {
+    if (generating || batchRunning) return;
+    const source = sourceText.trim();
+    if (!source) {
+      setNotice("Paste source text first.");
+      setFailedAttempts([]);
+      return;
+    }
+    let seasonNumber: number | undefined;
+    if (sourceKind === "season") {
+      const seasonRaw = sourceSeason.trim();
+      seasonNumber = seasonRaw
+        ? Number(seasonRaw)
+        : nextSeasonFromItems(itemsRef.current);
+      if (!Number.isInteger(seasonNumber) || seasonNumber < 1) {
+        setNotice("Season number must be a positive integer.");
+        setFailedAttempts([]);
+        return;
+      }
+    }
+    let day: number | undefined;
+    if (sourceKind === "moment") {
+      const dayRaw = sourceDay.trim();
+      if (dayRaw) {
+        day = Number(dayRaw);
+        if (!Number.isInteger(day) || day < 1) {
+          setNotice("Day must be a positive integer.");
+          setFailedAttempts([]);
+          return;
+        }
+      }
+    }
+    setGenerating(true);
+    setNotice(null);
+    setFailedAttempts([]);
+    setBatchErrors([]);
+    try {
+      const focus = sourceFocus.trim();
+      const result = await requestGenerate({
+        kind: sourceKind,
+        ...(seasonNumber !== undefined ? { seasonNumber } : {}),
+        ...(day !== undefined ? { day } : {}),
+        source,
+        ...(focus ? { focus } : {}),
+      });
+      if (!result.ok || !result.item) {
+        setNotice(result.error ?? "Generate failed.");
+        setFailedAttempts(result.attempts ?? []);
+        return;
+      }
+      upsertItem(result.item);
+      if (sourceKind === "season" && seasonNumber !== undefined) {
+        setSourceSeason(String(seasonNumber + 1));
+      }
       if (isDevEnv() && autoApprove) {
         await approveItem(result.item.id);
       }
@@ -238,7 +361,6 @@ export default function MuralsAdminPage() {
     setFailedAttempts([]);
     setBatchErrors([]);
 
-    let nextNumber = nextSeasonFromItems(itemsRef.current);
     let succeeded = 0;
     let failed = 0;
     const errors: string[] = [];
@@ -247,10 +369,8 @@ export default function MuralsAdminPage() {
       for (let i = 1; i <= count; i++) {
         if (stopBatchRef.current) break;
         setNotice(`Generating ${i} of ${count}...`);
-        const seasonNumber = nextNumber;
-        nextNumber += 1;
         try {
-          const result = await requestGenerate(seasonNumber);
+          const result = await requestGenerate({ kind: "moment" });
           if (!result.ok || !result.item) {
             failed += 1;
             const detail =
@@ -259,14 +379,14 @@ export default function MuralsAdminPage() {
                     .map((a) => `${a.stage}: ${a.message}`)
                     .join("; ")
                 : (result.error ?? "Generate failed.");
-            errors.push(`#${seasonNumber}: ${detail}`);
+            errors.push(`#${i}: ${detail}`);
             continue;
           }
           upsertItem(result.item);
           if (isDevEnv() && autoApprove) {
             const approved = await approveItem(result.item.id);
             if (!approved) {
-              errors.push(`#${seasonNumber}: generated but approve failed`);
+              errors.push(`#${i}: generated but approve failed`);
             }
           }
           succeeded += 1;
@@ -274,7 +394,7 @@ export default function MuralsAdminPage() {
           failed += 1;
           const message =
             error instanceof Error ? error.message : "Generate failed.";
-          errors.push(`#${seasonNumber}: ${message}`);
+          errors.push(`#${i}: ${message}`);
         }
       }
       setBatchErrors(errors);
@@ -301,9 +421,10 @@ export default function MuralsAdminPage() {
     patch: Partial<{
       title: string;
       caption: string;
-      frameKind: FrameKind;
       status: MuralStatus;
       seasonNumber: number;
+      kind: MuralKind;
+      day: number | null;
     }>,
     confirmLabel?: string
   ) {
@@ -319,11 +440,8 @@ export default function MuralsAdminPage() {
         headers: headers(),
         body: JSON.stringify(patch),
       });
-      if (res.status === 401) {
-        setRowError((prev) => ({
-          ...prev,
-          [id]: "Unauthorized. Check the admin key.",
-        }));
+      if (res.status === 401 || res.status === 429) {
+        lockAdmin();
         return;
       }
       const data = (await res.json().catch(() => null)) as {
@@ -370,11 +488,8 @@ export default function MuralsAdminPage() {
         method: "DELETE",
         headers: headers(),
       });
-      if (res.status === 401) {
-        setRowError((prev) => ({
-          ...prev,
-          [id]: "Unauthorized. Check the admin key.",
-        }));
+      if (res.status === 401 || res.status === 429) {
+        lockAdmin();
         return;
       }
       if (!res.ok) {
@@ -407,27 +522,37 @@ export default function MuralsAdminPage() {
         <h1 className="page-title text-2xl uppercase tracking-wide">
           Murals Admin
         </h1>
-        <p className="font-serif text-[#666]">
-          Enter the admin key to continue.
-        </p>
-        <input
-          type="password"
-          value={adminKey}
-          onChange={(e) => setAdminKey(e.target.value)}
-          className="border border-[#0a0a0a] bg-transparent px-3 py-2 font-mono text-sm"
-          placeholder="MURALS_ADMIN_KEY"
-        />
-        <button type="button" onClick={saveKey} className="btn-minimal self-start">
-          Continue
+        <label className="flex flex-col gap-2 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          Admin key
+          <input
+            type="password"
+            value={adminKey}
+            onChange={(e) => setAdminKey(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") unlockAdmin();
+            }}
+            className="border border-[#0a0a0a] bg-transparent px-3 py-2 font-mono text-sm normal-case tracking-normal text-[#0a0a0a]"
+            autoComplete="current-password"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={unlockAdmin}
+          className="btn-minimal self-start"
+        >
+          Unlock
         </button>
         {notice ? <p className="font-serif text-[#0a0a0a]">{notice}</p> : null}
       </main>
     );
   }
 
+  const seasonInputValue =
+    sourceSeason.trim() || String(nextSeasonPrefill || 1);
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-6 py-12 text-[#0a0a0a]">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="page-title text-2xl uppercase tracking-wide">
             Murals Admin
@@ -436,8 +561,132 @@ export default function MuralsAdminPage() {
             Review pending generations
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex flex-wrap items-center justify-end gap-2">
+        {!isDevEnv() ? (
+          <button
+            type="button"
+            onClick={lockAdmin}
+            className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666] underline-offset-2 hover:underline"
+          >
+            Lock
+          </button>
+        ) : null}
+      </div>
+
+      <section className="flex flex-col gap-4 border border-[#0a0a0a] p-4">
+        <h2 className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          New mural
+        </h2>
+        <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          Type
+          <select
+            value={sourceKind}
+            disabled={generateBusy}
+            onChange={(e) =>
+              setSourceKind(e.target.value === "season" ? "season" : "moment")
+            }
+            className="w-40 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm text-[#0a0a0a] disabled:opacity-40"
+          >
+            <option value="moment">Moment</option>
+            <option value="season">Season</option>
+          </select>
+        </label>
+        {sourceKind === "season" ? (
+          <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+            Season number
+            <input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={seasonInputValue}
+              disabled={generateBusy}
+              onChange={(e) => setSourceSeason(e.target.value)}
+              className="w-28 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+            />
+          </label>
+        ) : null}
+        {sourceKind === "moment" ? (
+          <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+            Day
+            <input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={sourceDay}
+              disabled={generateBusy}
+              placeholder="Optional"
+              onChange={(e) => setSourceDay(e.target.value)}
+              className="w-28 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+            />
+          </label>
+        ) : null}
+        <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          Source
+          <textarea
+            value={sourceText}
+            rows={10}
+            disabled={generateBusy}
+            placeholder="Paste the weekly recap or any notes here"
+            onChange={(e) => setSourceText(e.target.value)}
+            className="border border-[#0a0a0a] bg-transparent px-2 py-2 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+          />
+        </label>
+        <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          Focus (optional)
+          <input
+            type="text"
+            value={sourceFocus}
+            disabled={generateBusy}
+            maxLength={200}
+            placeholder="One line: the moment to build around"
+            onChange={(e) => setSourceFocus(e.target.value)}
+            className="border border-[#0a0a0a] bg-transparent px-2 py-1 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+          />
+        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void generateFromSource()}
+            disabled={generateBusy || loading || !sourceText.trim()}
+            className="btn-minimal disabled:opacity-40"
+          >
+            {generating && !batchRunning
+              ? "Generating..."
+              : "Generate from source"}
+          </button>
+        </div>
+        {notice ? (
+          <p className="font-serif text-sm text-[#0a0a0a]">{notice}</p>
+        ) : null}
+        {failedAttempts.length > 0 ? (
+          <ul className="flex flex-col gap-1 font-mono text-[0.6875rem] text-[#666]">
+            {failedAttempts.map((attempt) => (
+              <li key={`${attempt.attempt}-${attempt.stage}-${attempt.message}`}>
+                attempt {attempt.attempt} · {attempt.stage} · {attempt.message}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {batchErrors.length > 0 ? (
+          <ul className="flex max-w-xl flex-col gap-1 font-mono text-[0.6875rem] text-[#666]">
+            {batchErrors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <details
+        className="border border-[#0a0a0a] p-4"
+        open={testingOpen}
+        onToggle={(e) => setTestingOpen((e.target as HTMLDetailsElement).open)}
+      >
+        <summary className="cursor-pointer font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          Testing tools
+        </summary>
+        <div className="mt-4 flex flex-col items-start gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={generateNew}
@@ -455,11 +704,7 @@ export default function MuralsAdminPage() {
               Generate 10
             </button>
             {batchRunning ? (
-              <button
-                type="button"
-                onClick={stopBatch}
-                className="btn-minimal"
-              >
+              <button type="button" onClick={stopBatch} className="btn-minimal">
                 Stop
               </button>
             ) : null}
@@ -475,27 +720,8 @@ export default function MuralsAdminPage() {
               Approve automatically (testing only)
             </label>
           ) : null}
-          {notice ? (
-            <p className="font-serif text-sm text-[#0a0a0a]">{notice}</p>
-          ) : null}
-          {failedAttempts.length > 0 ? (
-            <ul className="flex flex-col gap-1 text-right font-mono text-[0.6875rem] text-[#666]">
-              {failedAttempts.map((attempt) => (
-                <li key={`${attempt.attempt}-${attempt.stage}-${attempt.message}`}>
-                  attempt {attempt.attempt} · {attempt.stage} · {attempt.message}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {batchErrors.length > 0 ? (
-            <ul className="flex max-w-md flex-col gap-1 text-right font-mono text-[0.6875rem] text-[#666]">
-              {batchErrors.map((error) => (
-                <li key={error}>{error}</li>
-              ))}
-            </ul>
-          ) : null}
         </div>
-      </div>
+      </details>
 
       {loading ? (
         <p className="font-serif italic text-[#666]">Loading…</p>
@@ -505,6 +731,7 @@ export default function MuralsAdminPage() {
         {items.map((item) => {
           const draft = drafts[item.id] ?? draftFromItem(item);
           const busy = Boolean(rowBusy[item.id]);
+          const seasonNameMeta = metaSeasonName(item);
           return (
             <article
               key={item.id}
@@ -520,50 +747,121 @@ export default function MuralsAdminPage() {
               </div>
 
               <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-                {item.id} · season {seasonNumberLabel(item) || "—"} ·{" "}
-                {item.seasonName} · {item.record.engine} · {item.status}
+                {item.id} · {muralKindOf(item)}
+                {muralKindOf(item) === "season"
+                  ? ` · season ${seasonNumberLabel(item) || "—"}`
+                  : dayLabel(item)
+                    ? ` · day ${dayLabel(item)}`
+                    : ""}
+                {seasonNameMeta ? ` · ${seasonNameMeta}` : ""} ·{" "}
+                {item.record.engine} · {item.status}
               </p>
 
               <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-                Season #
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  inputMode="numeric"
-                  value={draft.seasonNumber}
+                Type
+                <select
+                  value={draft.kind}
                   disabled={busy}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const kind =
+                      e.target.value === "season" ? "season" : "moment";
                     setDrafts((prev) => ({
                       ...prev,
-                      [item.id]: { ...draft, seasonNumber: e.target.value },
-                    }))
-                  }
-                  onBlur={() => {
-                    const parsed = Number(draft.seasonNumber);
-                    const current =
-                      typeof item.seasonNumber === "number"
-                        ? item.seasonNumber
-                        : null;
-                    if (
-                      !Number.isInteger(parsed) ||
-                      parsed < 1 ||
-                      parsed === current
-                    ) {
+                      [item.id]: { ...draft, kind },
+                    }));
+                    void patchItem(item.id, { kind });
+                  }}
+                  className="w-40 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm text-[#0a0a0a] disabled:opacity-40"
+                >
+                  <option value="moment">Moment</option>
+                  <option value="season">Season</option>
+                </select>
+              </label>
+
+              {draft.kind === "season" ? (
+                <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                  Season #
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    value={draft.seasonNumber}
+                    disabled={busy}
+                    onChange={(e) =>
                       setDrafts((prev) => ({
                         ...prev,
-                        [item.id]: {
-                          ...draft,
-                          seasonNumber: seasonNumberLabel(item),
-                        },
-                      }));
-                      return;
+                        [item.id]: { ...draft, seasonNumber: e.target.value },
+                      }))
                     }
-                    void patchItem(item.id, { seasonNumber: parsed });
-                  }}
-                  className="w-24 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
-                />
-              </label>
+                    onBlur={() => {
+                      const parsed = Number(draft.seasonNumber);
+                      const current =
+                        typeof item.seasonNumber === "number"
+                          ? item.seasonNumber
+                          : null;
+                      if (
+                        !Number.isInteger(parsed) ||
+                        parsed < 1 ||
+                        parsed === current
+                      ) {
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: {
+                            ...draft,
+                            seasonNumber: seasonNumberLabel(item),
+                          },
+                        }));
+                        return;
+                      }
+                      void patchItem(item.id, { seasonNumber: parsed });
+                    }}
+                    className="w-24 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+                  />
+                </label>
+              ) : null}
+
+              {draft.kind === "moment" ? (
+                <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                  Day
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    value={draft.day}
+                    disabled={busy}
+                    placeholder="Optional"
+                    onChange={(e) =>
+                      setDrafts((prev) => ({
+                        ...prev,
+                        [item.id]: { ...draft, day: e.target.value },
+                      }))
+                    }
+                    onBlur={() => {
+                      const raw = draft.day.trim();
+                      const current =
+                        typeof item.day === "number" ? item.day : null;
+                      if (!raw) {
+                        if (current == null) return;
+                        void patchItem(item.id, { day: null });
+                        return;
+                      }
+                      const parsed = Number(raw);
+                      if (!Number.isInteger(parsed) || parsed < 1) {
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: { ...draft, day: dayLabel(item) },
+                        }));
+                        return;
+                      }
+                      if (parsed === current) return;
+                      void patchItem(item.id, { day: parsed });
+                    }}
+                    className="w-24 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+                  />
+                </label>
+              ) : null}
 
               <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
                 Title
@@ -604,29 +902,6 @@ export default function MuralsAdminPage() {
                   }}
                   className="border border-[#0a0a0a] bg-transparent px-2 py-1 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
                 />
-              </label>
-
-              <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-                Frame
-                <select
-                  value={draft.frameKind}
-                  disabled={busy}
-                  onChange={(e) => {
-                    const frameKind = e.target.value as FrameKind;
-                    setDrafts((prev) => ({
-                      ...prev,
-                      [item.id]: { ...draft, frameKind },
-                    }));
-                    void patchItem(item.id, { frameKind });
-                  }}
-                  className="border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm text-[#0a0a0a] disabled:opacity-40"
-                >
-                  {FRAME_KINDS.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {kind}
-                    </option>
-                  ))}
-                </select>
               </label>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -697,9 +972,52 @@ export default function MuralsAdminPage() {
               ) : null}
 
               {openDetails[item.id] ? (
-                <pre className="overflow-x-auto border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
-                  {JSON.stringify(item.record, null, 2)}
-                </pre>
+                <div className="space-y-3">
+                  {isTextPathRecord(item) ? (
+                    <div className="border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
+                      <p className="mb-2 uppercase tracking-[0.08em] text-[#666]">
+                        Cast
+                      </p>
+                      {(() => {
+                        const { list, unmatched } = castDetails(
+                          item.record.normieCast
+                        );
+                        if (list.length === 0) {
+                          return (
+                            <p className="text-[#666]">No cast looked up.</p>
+                          );
+                        }
+                        return (
+                          <>
+                            <ul className="space-y-1">
+                              {list.map((member) => (
+                                <li key={`${member.name}-${member.status}`}>
+                                  {member.name}
+                                  {member.tokenId != null
+                                    ? ` · token ${member.tokenId}`
+                                    : ""}
+                                  {member.type ? ` · ${member.type}` : ""}
+                                  {` · ${member.status}`}
+                                </li>
+                              ))}
+                            </ul>
+                            {unmatched.length > 0 ? (
+                              <p className="mt-2 text-[#666]">
+                                Unmatched:{" "}
+                                {unmatched
+                                  .map((m) => `${m.name} (${m.status})`)
+                                  .join(", ")}
+                              </p>
+                            ) : null}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
+                  <pre className="overflow-x-auto border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
+                    {JSON.stringify(item.record, null, 2)}
+                  </pre>
+                </div>
               ) : null}
             </article>
           );

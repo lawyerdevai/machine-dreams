@@ -2,7 +2,12 @@ import { randomUUID } from "crypto";
 import { runV2, type RunV2Result } from "./engine-v2";
 import { runV3, type RunV3Result } from "./engine-v3";
 import { frameKindFor } from "./frame";
-import { getSeasonRecord } from "./season";
+import { buildNormieCast } from "./normies";
+import {
+  getSeasonRecord,
+  seasonRecordFromSource,
+  type SeasonRecord,
+} from "./season";
 import {
   listMuralItems,
   loadHistory,
@@ -15,6 +20,8 @@ import type {
   GenerateAttemptFailure,
   MuralGeneratorRecord,
   MuralItem,
+  MuralKind,
+  NormieCastMember,
 } from "./types";
 
 export type { GenerateAttemptFailure, GenerateFailureStage } from "./types";
@@ -32,7 +39,16 @@ type EngineOk = Extract<RunV2Result, { ok: true }> | Extract<RunV3Result, { ok: 
 async function saveSuccess(
   result: EngineOk,
   history: Awaited<ReturnType<typeof loadHistory>>,
-  seasonNumber: number
+  opts: {
+    kind: MuralKind;
+    seasonNumber?: number;
+    day?: number;
+    sourceMeta?: {
+      source?: string;
+      focus?: string;
+      normieCast?: NormieCastMember[];
+    };
+  }
 ): Promise<MuralItem> {
   const id = randomUUID().replace(/-/g, "").slice(0, 16);
   const imageUrl = await uploadMuralPng(id, result.imageBytes);
@@ -68,6 +84,11 @@ async function saveSuccess(
     beat: result.beat,
     figure: result.version === "v2" ? result.figure : undefined,
     flagged: result.flagged,
+    ...(opts.sourceMeta?.source ? { source: opts.sourceMeta.source } : {}),
+    ...(opts.sourceMeta?.focus ? { focus: opts.sourceMeta.focus } : {}),
+    ...(opts.sourceMeta?.normieCast
+      ? { normieCast: opts.sourceMeta.normieCast }
+      : {}),
   };
 
   const item: MuralItem = {
@@ -78,7 +99,13 @@ async function saveSuccess(
     imageUrl,
     seasonId: result.seasonId,
     seasonName: result.seasonName,
-    seasonNumber,
+    kind: opts.kind,
+    ...(opts.kind === "season" && opts.seasonNumber !== undefined
+      ? { seasonNumber: opts.seasonNumber }
+      : {}),
+    ...(opts.kind === "moment" && opts.day !== undefined
+      ? { day: opts.day }
+      : {}),
     createdAt,
     approvedAt: null,
     frameKind,
@@ -119,21 +146,95 @@ async function saveSuccess(
 /**
  * Flip a coin between v2 and v3, generate, save as pending under the env NS.
  * Retries up to 3 times, re-rolling engine/kits/style each attempt.
+ * When `source` is set, uses the text path; otherwise the built-in test-data path.
  */
+/** Pull "World days N" from pasted source when Day was left empty. */
+export function dayFromSourceText(source: string): number | undefined {
+  const match = source.match(/world\s+days\s+(\d+)/i);
+  if (!match) return undefined;
+  const n = Number(match[1]);
+  if (!Number.isInteger(n) || n < 1) return undefined;
+  return n;
+}
+
 export async function generateMural(opts?: {
   seasonId?: string;
   seasonNumber?: number;
+  source?: string;
+  focus?: string;
+  kind?: MuralKind;
+  day?: number;
 }): Promise<GenerateMuralResult> {
   const history = await loadHistory();
-  const season = getSeasonRecord(opts?.seasonId ?? history.lastSeasonId);
   const attempts: GenerateAttemptFailure[] = [];
 
-  const seasonNumber =
+  const kind: MuralKind = opts?.kind === "season" ? "season" : "moment";
+
+  const explicitSeasonNumber =
     typeof opts?.seasonNumber === "number" &&
     Number.isInteger(opts.seasonNumber) &&
     opts.seasonNumber > 0
       ? opts.seasonNumber
-      : nextSeasonNumber(await listMuralItems());
+      : undefined;
+
+  const seasonNumber =
+    kind === "season"
+      ? explicitSeasonNumber ?? nextSeasonNumber(await listMuralItems())
+      : explicitSeasonNumber;
+
+  const source =
+    typeof opts?.source === "string" ? opts.source.trim() : undefined;
+  const focus =
+    typeof opts?.focus === "string" && opts.focus.trim()
+      ? opts.focus.trim()
+      : undefined;
+
+  const explicitDay =
+    typeof opts?.day === "number" &&
+    Number.isInteger(opts.day) &&
+    opts.day > 0
+      ? opts.day
+      : undefined;
+  const day =
+    kind === "moment"
+      ? explicitDay ??
+        (source ? dayFromSourceText(source) : undefined)
+      : undefined;
+
+  const season: SeasonRecord = source
+    ? seasonRecordFromSource({
+        seasonNumber: seasonNumber ?? 1,
+        source,
+        ...(focus ? { focus } : {}),
+      })
+    : getSeasonRecord(opts?.seasonId ?? history.lastSeasonId);
+
+  let normieCast: NormieCastMember[] | undefined;
+  if (source) {
+    console.info(`[murals] generate stage=lookup starting`);
+    try {
+      normieCast = await buildNormieCast(source);
+      const matched = normieCast.filter((m) => m.status === "matched").length;
+      console.info(
+        `[murals] generate stage=lookup done names=${normieCast.length} matched=${matched}`
+      );
+    } catch (error) {
+      console.warn(
+        `[murals] generate stage=lookup failed (continuing without cast): ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      normieCast = [];
+    }
+  }
+
+  const sourceMeta = source
+    ? {
+        source,
+        ...(focus ? { focus } : {}),
+        ...(normieCast ? { normieCast } : {}),
+      }
+    : undefined;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const engine = Math.random() < 0.5 ? "v2" : "v3";
@@ -144,6 +245,7 @@ export async function generateMural(opts?: {
       usedStyles: history.usedStyles,
       usedFigures: history.usedFigures,
       usedBeats: history.usedBeats,
+      ...(normieCast ? { normieCast } : {}),
     };
 
     const result =
@@ -169,7 +271,12 @@ export async function generateMural(opts?: {
     }
 
     try {
-      const item = await saveSuccess(result, history, seasonNumber);
+      const item = await saveSuccess(result, history, {
+        kind,
+        ...(seasonNumber !== undefined ? { seasonNumber } : {}),
+        ...(day !== undefined ? { day } : {}),
+        ...(sourceMeta ? { sourceMeta } : {}),
+      });
       return { ok: true, item };
     } catch (error) {
       const message =

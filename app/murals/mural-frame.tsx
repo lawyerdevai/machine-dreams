@@ -2,7 +2,8 @@ import Image from "next/image";
 import type { FrameKind } from "@/lib/murals/frame";
 
 type Props = {
-  frameKind: FrameKind;
+  /** Stored on records; unused for public display styling. */
+  frameKind?: FrameKind;
   imageUrl: string;
   alt: string;
   sizes: string;
@@ -19,8 +20,8 @@ export function muralAlt(title: string, caption: string): string {
   return t || c || "Mural";
 }
 
+/** Public mural image: 3:2, no border/mat/bezel, soft shadow via CSS. */
 export function MuralFrame({
-  frameKind,
   imageUrl,
   alt,
   sizes,
@@ -29,29 +30,20 @@ export function MuralFrame({
   quality,
   className = "",
 }: Props) {
-  const craft = frameKind === "craft";
-  const image = (
-    <Image
-      src={imageUrl}
-      alt={alt}
-      fill
-      sizes={sizes}
-      priority={priority}
-      loading={priority ? undefined : (loading ?? "lazy")}
-      quality={quality}
-      className="object-cover"
-    />
-  );
-
   return (
-    <div className={`mural-frame mural-frame--${frameKind} ${className}`.trim()}>
-      {craft ? (
-        <div className="mural-frame__mat">
-          <div className="mural-frame__inner">{image}</div>
-        </div>
-      ) : (
-        <div className="mural-frame__inner">{image}</div>
-      )}
+    <div className={`mural-frame ${className}`.trim()}>
+      <div className="mural-frame__inner">
+        <Image
+          src={imageUrl}
+          alt={alt}
+          fill
+          sizes={sizes}
+          priority={priority}
+          loading={priority ? undefined : (loading ?? "lazy")}
+          quality={quality}
+          className="object-cover"
+        />
+      </div>
     </div>
   );
 }

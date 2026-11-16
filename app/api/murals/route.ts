@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listMuralItems } from "@/lib/murals/store";
-import type { MuralPublicItem } from "@/lib/murals/types";
+import { muralKindOf, type MuralPublicItem } from "@/lib/murals/types";
 
 function toPublic(item: {
   id: string;
@@ -9,11 +9,13 @@ function toPublic(item: {
   imageUrl: string;
   seasonName: string;
   seasonNumber?: number;
+  day?: number;
+  kind?: string | null;
   createdAt: number;
-  frameKind: MuralPublicItem["frameKind"];
   status: string;
 }): MuralPublicItem | null {
   if (item.status !== "approved") return null;
+  const kind = muralKindOf(item);
   const publicItem: MuralPublicItem = {
     id: item.id,
     title: item.title,
@@ -21,13 +23,22 @@ function toPublic(item: {
     imageUrl: item.imageUrl,
     seasonName: item.seasonName,
     createdAt: item.createdAt,
-    frameKind: item.frameKind,
+    kind,
   };
   if (
+    kind === "season" &&
     typeof item.seasonNumber === "number" &&
     Number.isFinite(item.seasonNumber)
   ) {
     publicItem.seasonNumber = Math.trunc(item.seasonNumber);
+  }
+  if (
+    kind === "moment" &&
+    typeof item.day === "number" &&
+    Number.isFinite(item.day) &&
+    item.day > 0
+  ) {
+    publicItem.day = Math.trunc(item.day);
   }
   return publicItem;
 }
@@ -37,6 +48,7 @@ export async function GET() {
   const items = await listMuralItems();
   const publicItems = items
     .map(toPublic)
-    .filter((item): item is MuralPublicItem => item !== null);
+    .filter((item): item is MuralPublicItem => item !== null)
+    .sort((a, b) => b.createdAt - a.createdAt);
   return NextResponse.json({ items: publicItems });
 }

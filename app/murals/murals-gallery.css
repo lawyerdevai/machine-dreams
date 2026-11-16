@@ -11,6 +11,7 @@
   --murals-max: 72rem;
   --murals-focus-ms: 300ms;
   --murals-fade-ms: 200ms;
+  --murals-tabs-w: 8.5rem;
   background: var(--murals-wall);
   color: var(--murals-ink);
   min-height: 100%;
@@ -20,12 +21,120 @@
   flex-direction: column;
 }
 
+.murals-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.murals-tabpanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
 .murals-gallery {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+
+/* Tabs: under heading on narrow; sticky left column on desktop. */
+.murals-tabs-mobile {
+  padding: 0.35rem var(--murals-pad-x) 0.15rem;
+}
+
+.murals-tabs__list {
+  display: flex;
+  flex-direction: row;
+  gap: 0.35rem 1.25rem;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.murals-tabs__tab {
+  font-family: var(--font-space-mono), "Space Mono", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--murals-dim);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 0.35rem 0.1rem 0.45rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.murals-tabs__tab.is-active {
+  color: var(--murals-ink);
+  border-bottom-color: rgba(232, 226, 214, 0.75);
+}
+
+.murals-tabs__count {
+  color: inherit;
+  opacity: 0.7;
+  font-size: 0.5625rem;
+}
+
+.murals-tabs__tab:focus-visible {
+  outline: 2px solid #7ec8e3;
+  outline-offset: 3px;
+}
+
+@media (min-width: 900px) {
+  .murals-shell {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .murals-tabs-mobile {
+    display: none;
+  }
+
+  .murals-tabs--side {
+    display: block;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    width: var(--murals-tabs-w);
+    min-height: calc(100dvh - var(--murals-site-nav));
+    padding: 1.5rem 0.75rem 1.5rem var(--murals-pad-x);
+    z-index: 6;
+  }
+
+  .murals-tabs--side .murals-tabs__list {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.55rem;
+  }
+
+  .murals-tabs--side .murals-tabs__tab {
+    border-bottom: none;
+    border-left: 1px solid transparent;
+    padding: 0.35rem 0.5rem 0.35rem 0.65rem;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .murals-tabs--side .murals-tabs__tab.is-active {
+    border-left-color: rgba(232, 226, 214, 0.75);
+  }
+
+  .murals-tabpanel {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 /* Desktop Timeline: prefer one viewport; allow page scroll if caption is long. */
@@ -46,6 +155,41 @@
     flex: 1 1 auto;
     min-height: 0;
   }
+}
+
+.murals-empty-seasons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 2.5rem var(--murals-pad-x) 3.5rem;
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+.murals-empty-seasons__ghosts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.murals-ghost-frame {
+  aspect-ratio: 3 / 2;
+  border: 1px dashed rgba(232, 226, 214, 0.22);
+  background: transparent;
+  opacity: 0.55;
+}
+
+.murals-empty-seasons__copy {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif;
+  color: var(--murals-dim);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: center;
+  margin: 0;
+  max-width: 22rem;
 }
 
 /* Shared header in Timeline + Grid — same position, no jump. */
@@ -160,16 +304,19 @@
 }
 
 .murals-hang__shadow {
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.45),
-    0 4px 12px rgba(0, 0, 0, 0.35);
+  /* Shadow lives on .mural-frame so public images stay frameless. */
+  box-shadow: none;
 }
 
-/* —— Frames (CSS only) —— */
+/* —— Public mural image (no border / mat / bezel) —— */
 .mural-frame {
   display: block;
   width: 100%;
   line-height: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
 
 .mural-frame__inner {
@@ -178,109 +325,6 @@
   aspect-ratio: 3 / 2;
   overflow: hidden;
   background: #0a0a0a;
-}
-
-.mural-frame--print {
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: #f7f7f5;
-  padding: 0.55rem;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
-}
-
-.mural-frame--ink {
-  background:
-    linear-gradient(135deg, #f3ebe0 0%, #ebe2d4 48%, #e6dccb 100%);
-  padding: 0.85rem 0.75rem 0.95rem;
-  border: 1px solid rgba(90, 70, 40, 0.35);
-  border-radius: 1px 2px 1px 3px / 2px 1px 3px 1px;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.25) inset,
-    1px 2px 0 rgba(60, 40, 20, 0.08);
-}
-
-.mural-frame--glitch {
-  background: linear-gradient(160deg, #4a4a4e 0%, #2e2e32 55%, #3c3c40 100%);
-  padding: 0.28rem;
-  border: 1px solid #6a6a70;
-  box-shadow:
-    0 0 0 1px rgba(200, 200, 205, 0.4),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
-}
-
-.mural-frame--painting {
-  background:
-    linear-gradient(145deg, #c9a44a 0%, #8a6a22 28%, #e0c878 52%, #6e5418 78%, #b8923c 100%);
-  padding: 0.72rem;
-  border: 2px solid #5a4210;
-  box-shadow:
-    inset 0 0 0 2px rgba(255, 230, 160, 0.35),
-    inset 0 0 0 5px rgba(80, 50, 10, 0.45),
-    0 2px 0 rgba(255, 220, 140, 0.2);
-}
-
-.mural-frame--painting .mural-frame__inner {
-  box-shadow: inset 0 0 0 1px rgba(40, 25, 5, 0.5);
-}
-
-.mural-frame--schematic {
-  background: #0a2740;
-  padding: 0.4rem;
-  border: 1px solid #3a7ab0;
-  box-shadow:
-    inset 0 0 0 1px rgba(120, 190, 255, 0.25),
-    0 0 0 1px rgba(20, 60, 100, 0.6);
-  position: relative;
-}
-
-.mural-frame--schematic::before,
-.mural-frame--schematic::after {
-  content: "";
-  position: absolute;
-  background: repeating-linear-gradient(
-    to right,
-    #5aa0d0 0 1px,
-    transparent 1px 6px
-  );
-  height: 3px;
-  left: 0.4rem;
-  right: 0.4rem;
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.mural-frame--schematic::before {
-  top: 0.12rem;
-}
-
-.mural-frame--schematic::after {
-  bottom: 0.12rem;
-}
-
-.mural-frame--craft {
-  background:
-    linear-gradient(160deg, #6b4a2a 0%, #4a3018 40%, #7a5530 100%);
-  padding: 0.35rem;
-  border: 1px solid #2a180c;
-  box-shadow: inset 0 0 0 1px rgba(210, 170, 110, 0.25);
-}
-
-.mural-frame--craft .mural-frame__mat {
-  background:
-    radial-gradient(ellipse at 30% 20%, #d9c4a0 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 70%, #c4a882 0%, transparent 50%),
-    linear-gradient(180deg, #cbb892 0%, #b89f78 100%);
-  padding: 1.15rem 1rem;
-}
-
-.mural-frame--plain {
-  background: #1a1a1a;
-  padding: 0.22rem;
-  border: 1px solid #3d3d3d;
-  box-shadow: 0 0 0 1px rgba(210, 210, 210, 0.22);
-}
-
-.mural-frame__mat {
-  display: block;
 }
 
 /* —— Labels —— */
@@ -317,25 +361,6 @@
   font-weight: 500;
   color: var(--murals-ink);
   margin: 0;
-}
-
-.murals-label__view {
-  font-family: var(--font-space-mono), "Space Mono", monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--murals-muted);
-  text-decoration: none;
-  flex-shrink: 0;
-}
-
-.murals-label__view:hover {
-  color: var(--murals-ink);
-}
-
-.murals-label__view:focus-visible {
-  outline: 2px solid #7ec8e3;
-  outline-offset: 3px;
 }
 
 .murals-label__caption {
@@ -399,6 +424,10 @@
   width: min(100%, calc(46dvh * 3 / 2));
   max-width: 100%;
   margin-inline: 0;
+}
+
+.murals-stage__enlarge {
+  cursor: zoom-in;
 }
 
 .murals-stage__hang .murals-hang__spot {
@@ -586,7 +615,8 @@
 }
 
 .murals-strip__thumb.is-selected .murals-strip__frame {
-  box-shadow: 0 0 0 1px rgba(232, 226, 214, 0.85);
+  outline: 2px solid rgba(232, 226, 214, 0.95);
+  outline-offset: 1px;
 }
 
 .murals-strip__thumb:focus-visible {
@@ -598,6 +628,10 @@
   display: block;
   width: 100%;
   line-height: 0;
+}
+
+.murals-strip__frame .mural-frame {
+  box-shadow: none;
 }
 
 .murals-strip__season {

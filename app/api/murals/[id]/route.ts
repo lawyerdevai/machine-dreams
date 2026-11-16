@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMuralItem } from "@/lib/murals/store";
+import { muralKindOf } from "@/lib/murals/types";
 
 export async function GET(
   _request: Request,
@@ -10,6 +11,7 @@ export async function GET(
   if (!item || item.status !== "approved") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+  const kind = muralKindOf(item);
   const body: {
     id: string;
     title: string;
@@ -17,8 +19,9 @@ export async function GET(
     imageUrl: string;
     seasonName: string;
     createdAt: number;
-    frameKind: typeof item.frameKind;
+    kind: typeof kind;
     seasonNumber?: number;
+    day?: number;
   } = {
     id: item.id,
     title: item.title,
@@ -26,13 +29,22 @@ export async function GET(
     imageUrl: item.imageUrl,
     seasonName: item.seasonName,
     createdAt: item.createdAt,
-    frameKind: item.frameKind,
+    kind,
   };
   if (
+    kind === "season" &&
     typeof item.seasonNumber === "number" &&
     Number.isFinite(item.seasonNumber)
   ) {
     body.seasonNumber = Math.trunc(item.seasonNumber);
+  }
+  if (
+    kind === "moment" &&
+    typeof item.day === "number" &&
+    Number.isFinite(item.day) &&
+    item.day > 0
+  ) {
+    body.day = Math.trunc(item.day);
   }
   return NextResponse.json(body);
 }

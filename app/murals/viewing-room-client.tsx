@@ -10,9 +10,15 @@ type Props = {
   item: PublicMural;
   newerId: string | null;
   olderId: string | null;
+  galleryHref: string;
 };
 
-export function ViewingRoomClient({ item, newerId, olderId }: Props) {
+export function ViewingRoomClient({
+  item,
+  newerId,
+  olderId,
+  galleryHref,
+}: Props) {
   const router = useRouter();
 
   useEffect(() => {
@@ -37,6 +43,32 @@ export function ViewingRoomClient({ item, newerId, olderId }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [newerId, olderId, router]);
+
+  // Site header Gallery lives outside app/murals; point it at the matching tab.
+  useEffect(() => {
+    try {
+      const tab = galleryHref.includes("moments") ? "moments" : "seasons";
+      sessionStorage.setItem("arena-murals-tab", tab);
+    } catch {
+      /* ignore */
+    }
+    const header = document.querySelector("header");
+    if (!header) return;
+    const links = header.querySelectorAll("a");
+    const patched: HTMLAnchorElement[] = [];
+    for (const link of links) {
+      if (link.textContent?.trim() !== "Gallery") continue;
+      const href = link.getAttribute("href");
+      if (!href || !href.startsWith("/murals")) continue;
+      link.setAttribute("href", galleryHref);
+      patched.push(link);
+    }
+    return () => {
+      for (const link of patched) {
+        link.setAttribute("href", "/murals");
+      }
+    };
+  }, [galleryHref]);
 
   return (
     <div className="murals-room">
@@ -63,7 +95,6 @@ export function ViewingRoomClient({ item, newerId, olderId }: Props) {
           <div className="murals-hang__body">
             <div className="murals-hang__shadow w-full">
               <MuralFrame
-                frameKind={item.frameKind}
                 imageUrl={item.imageUrl}
                 alt={muralAlt(item.title, item.caption)}
                 sizes="(max-width: 768px) 92vw, 52rem"
@@ -73,7 +104,9 @@ export function ViewingRoomClient({ item, newerId, olderId }: Props) {
             <WallLabel
               title={item.title}
               caption={item.caption}
+              kind={item.kind}
               seasonNumber={item.seasonNumber}
+              day={item.day}
               titleAs="h1"
               align="left"
             />

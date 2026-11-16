@@ -1,9 +1,11 @@
 import "server-only";
 
 import { getMuralItem, listMuralItems } from "@/lib/murals/store";
-import type { PublicMural } from "./public-types";
+import { muralKindOf } from "@/lib/murals/types";
+import { sortSeasonMurals, type PublicMural } from "./public-types";
 
 export type { PublicMural } from "./public-types";
+export { sortSeasonMurals } from "./public-types";
 
 function toPublic(item: {
   id: string;
@@ -11,36 +13,42 @@ function toPublic(item: {
   caption: string;
   imageUrl: string;
   seasonNumber?: number;
+  day?: number;
+  kind?: string | null;
   createdAt: number;
-  frameKind: PublicMural["frameKind"];
   status: string;
 }): PublicMural | null {
   if (item.status !== "approved") return null;
+  const kind = muralKindOf(item);
   const publicItem: PublicMural = {
     id: item.id,
     title: item.title,
     caption: item.caption,
     imageUrl: item.imageUrl,
     createdAt: item.createdAt,
-    frameKind: item.frameKind,
+    kind,
   };
   if (
+    kind === "season" &&
     typeof item.seasonNumber === "number" &&
     Number.isFinite(item.seasonNumber)
   ) {
     publicItem.seasonNumber = Math.trunc(item.seasonNumber);
   }
+  if (
+    kind === "moment" &&
+    typeof item.day === "number" &&
+    Number.isFinite(item.day) &&
+    item.day > 0
+  ) {
+    publicItem.day = Math.trunc(item.day);
+  }
   return publicItem;
 }
 
-/** Newest season first (seasonNumber desc), then newest createdAt. */
+/** Newest first by createdAt (home preview + default list order). */
 export function sortPublicMurals(items: PublicMural[]): PublicMural[] {
-  return [...items].sort((a, b) => {
-    const aN = typeof a.seasonNumber === "number" ? a.seasonNumber : -Infinity;
-    const bN = typeof b.seasonNumber === "number" ? b.seasonNumber : -Infinity;
-    if (bN !== aN) return bN - aN;
-    return b.createdAt - a.createdAt;
-  });
+  return [...items].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 /**

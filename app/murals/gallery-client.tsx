@@ -8,14 +8,15 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
-import type { PublicMural } from "./public-types";
+import { sortSeasonMurals, type PublicMural } from "./public-types";
 import { MuralFrame, muralAlt } from "./mural-frame";
-import { WallLabel } from "./wall-label";
+import { publicKindLabel, WallLabel } from "./wall-label";
 
 type ViewMode = "timeline" | "grid";
+type GalleryTab = "seasons" | "moments";
 
-const STORAGE_KEY = "arena-murals-view";
 const GRID_PAGE = 24;
 const THUMB_W = 72;
 const THUMB_GAP = 8;
@@ -24,20 +25,27 @@ const DOCK_MAX = 1.8;
 const DOCK_RADIUS = 110;
 const DRAG_THRESHOLD = 5;
 
-function readStoredView(): ViewMode {
+function viewStorageKey(tab: GalleryTab): string {
+  return `arena-murals-view-${tab}`;
+}
+
+function readStoredView(tab: GalleryTab): ViewMode {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
+    const v = localStorage.getItem(viewStorageKey(tab));
     if (v === "timeline" || v === "grid") return v;
     if (v === "wall") return "timeline";
+    const legacy = localStorage.getItem("arena-murals-view");
+    if (legacy === "timeline" || legacy === "grid") return legacy;
+    if (legacy === "wall") return "timeline";
   } catch {
     /* ignore */
   }
   return "timeline";
 }
 
-function writeStoredView(mode: ViewMode) {
+function writeStoredView(tab: GalleryTab, mode: ViewMode) {
   try {
-    localStorage.setItem(STORAGE_KEY, mode);
+    localStorage.setItem(viewStorageKey(tab), mode);
   } catch {
     /* ignore */
   }
@@ -66,12 +74,12 @@ function seasonShort(seasonNumber?: number): string {
   return `S${Math.trunc(seasonNumber)}`;
 }
 
-function thumbAriaLabel(item: PublicMural): string {
-  const season =
-    typeof item.seasonNumber === "number"
-      ? `Season ${Math.trunc(item.seasonNumber)}`
-      : "Season";
-  return `${season}: ${item.title}`;
+function thumbAriaLabel(item: PublicMural, tab: GalleryTab): string {
+  const label = publicKindLabel(item.kind, item.seasonNumber, item.day);
+  if (tab === "moments") {
+    return label ? `${label}: ${item.title}` : item.title;
+  }
+  return label ? `${label}: ${item.title}` : item.title;
 }
 
 function readQueryParam(name: string): string | null {
@@ -82,10 +90,13 @@ function readQueryParam(name: string): string | null {
   }
 }
 
-function replaceSelectionInUrl(id: string) {
+function replaceQuery(updates: Record<string, string | null>) {
   try {
     const url = new URL(window.location.href);
-    url.searchParams.set("s", id);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value == null || value === "") url.searchParams.delete(key);
+      else url.searchParams.set(key, value);
+    }
     window.history.replaceState(null, "", `${url.pathname}${url.search}`);
   } catch {
     /* ignore */
@@ -108,7 +119,9 @@ function expandFakeItems(items: PublicMural[], count: number): PublicMural[] {
     out.push({
       ...src,
       id: `fake-${i}-${src.id}`,
-      seasonNumber: baseMax + n - i,
+      ...(src.kind === "season"
+        ? { seasonNumber: baseMax + n - i }
+        : { seasonNumber: undefined }),
       title: src.title,
       caption: src.caption,
     });
@@ -116,14 +129,9 @@ function expandFakeItems(items: PublicMural[], count: number): PublicMural[] {
   return out;
 }
 
-function SeasonLine({ seasonNumber }: { seasonNumber?: number }) {
-  const show =
-    typeof seasonNumber === "number" && Number.isFinite(seasonNumber);
-  return (
-    <p className="murals-season-line">
-      {show ? `Season ${Math.trunc(seasonNumber)}` : null}
-    </p>
-  );
+function KindLine({ item }: { item: PublicMural }) {
+  const text = publicKindLabel(item.kind, item.seasonNumber, item.day);
+  return <p className="murals-season-line">{text}</p>;
 }
 
 function StageWork({ item }: { item: PublicMural }) {
@@ -131,14 +139,13 @@ function StageWork({ item }: { item: PublicMural }) {
     <div className="murals-hang murals-stage__hang">
       <div className="murals-hang__spot" aria-hidden="true" />
       <div className="murals-hang__body">
-        <SeasonLine seasonNumber={item.seasonNumber} />
+        <KindLine item={item} />
         <Link
           href={`/murals/${item.id}`}
-          className="murals-link-reset murals-stage__media murals-hang__shadow"
-          aria-label={`Open ${item.title}`}
+          className="murals-link-reset murals-stage__media murals-hang__shadow murals-stage__enlarge"
+          aria-label={`Enlarge ${item.title}`}
         >
           <MuralFrame
-            frameKind={item.frameKind}
             imageUrl={item.imageUrl}
             alt={muralAlt(item.title, item.caption)}
             sizes="(max-width: 768px) 92vw, min(42rem, 70vw)"
@@ -150,11 +157,12 @@ function StageWork({ item }: { item: PublicMural }) {
         <WallLabel
           title={item.title}
           caption={item.caption}
+          kind={item.kind}
           seasonNumber={item.seasonNumber}
+          day={item.day}
           includeSeason={false}
           titleAs="h2"
           align="left"
-          viewHref={`/murals/${item.id}`}
         />
       </div>
     </div>
@@ -173,7 +181,6 @@ function GridTile({ item }: { item: PublicMural }) {
         <div className="murals-hang__body">
           <div className="murals-hang__shadow w-full">
             <MuralFrame
-              frameKind={item.frameKind}
               imageUrl={item.imageUrl}
               alt={muralAlt(item.title, item.caption)}
               sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 220px"
@@ -184,7 +191,9 @@ function GridTile({ item }: { item: PublicMural }) {
           <WallLabel
             title={item.title}
             caption=""
+            kind={item.kind}
             seasonNumber={item.seasonNumber}
+            day={item.day}
             titleAs="h2"
             align="center"
           />
@@ -221,7 +230,30 @@ function ViewToggle({
   );
 }
 
-export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
+function SeasonsEmpty() {
+  return (
+    <div className="murals-empty-seasons">
+      <div className="murals-empty-seasons__ghosts" aria-hidden="true">
+        <div className="murals-ghost-frame" />
+        <div className="murals-ghost-frame" />
+        <div className="murals-ghost-frame" />
+      </div>
+      <p className="murals-empty-seasons__copy">
+        The first season mural will appear here when the season ends.
+      </p>
+    </div>
+  );
+}
+
+function KindGallery({
+  tab,
+  items,
+  tabsSlot,
+}: {
+  tab: GalleryTab;
+  items: PublicMural[];
+  tabsSlot?: ReactNode;
+}) {
   const [view, setView] = useState<ViewMode>("timeline");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [gridCount, setGridCount] = useState(GRID_PAGE);
@@ -277,7 +309,10 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
   }, []);
 
   const onHydrate = useEffectEvent(() => {
-    setView(readStoredView());
+    setView(readStoredView(tab));
+    setGridCount(GRID_PAGE);
+    setJumpValue("");
+    setJumpError(null);
 
     let list = items;
     if (process.env.NODE_ENV === "development") {
@@ -299,14 +334,15 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
   });
 
   useEffect(() => {
+    setReady(false);
     onHydrate();
-  }, [items]);
+  }, [items, tab]);
 
   const selectId = useCallback(
     (id: string, opts?: { syncUrl?: boolean; scrollStrip?: boolean }) => {
       setSelectedId(id);
       setJumpError(null);
-      if (opts?.syncUrl !== false) replaceSelectionInUrl(id);
+      if (opts?.syncUrl !== false) replaceQuery({ s: id });
       if (opts?.scrollStrip !== false) {
         requestAnimationFrame(() => {
           const strip = stripRef.current;
@@ -325,10 +361,13 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
     [updateStripOverflow]
   );
 
-  const setMode = useCallback((mode: ViewMode) => {
-    setView(mode);
-    writeStoredView(mode);
-  }, []);
+  const setMode = useCallback(
+    (mode: ViewMode) => {
+      setView(mode);
+      writeStoredView(tab, mode);
+    },
+    [tab]
+  );
 
   const applyDockScales = useCallback((clientX: number | null) => {
     if (!hasFinePointer()) {
@@ -365,7 +404,7 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
   );
 
   useEffect(() => {
-    if (!ready || view !== "timeline") return;
+    if (!ready || view !== "timeline" || displayItems.length === 0) return;
     const strip = stripRef.current;
     if (!strip) return;
 
@@ -374,7 +413,6 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
     const onWheel = (e: WheelEvent) => {
       const overflows = strip.scrollWidth > strip.clientWidth + 2;
       if (!overflows) return;
-      // Native horizontal trackpad / shift+wheel: let the browser handle it.
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
       if (e.deltaY === 0) return;
       e.preventDefault();
@@ -422,7 +460,6 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
           /* ignore */
         }
       }
-      // Keep moved flag until click handler runs (same event turn / next).
       window.setTimeout(() => {
         if (dragRef.current.pointerId === e.pointerId) {
           dragRef.current.pointerId = null;
@@ -537,35 +574,28 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
     selectId(match.id);
   }
 
-  const header = (
-    <div className="murals-header">
-      <h1 className="murals-heading">Murals</h1>
-      <ViewToggle view={view} onChange={setMode} />
-    </div>
-  );
-
-  if (items.length === 0 && displayItems.length === 0) {
-    return (
-      <div className="murals-gallery">
-        <div className="murals-header">
-          <h1 className="murals-heading">Murals</h1>
-        </div>
-        <p className="murals-empty">
-          No murals yet. The first one is made when a season ends.
-        </p>
-      </div>
-    );
-  }
-
+  const showSeasonsEmpty = tab === "seasons" && displayItems.length === 0;
+  const showMomentsEmpty = tab === "moments" && displayItems.length === 0;
   const gridVisible = displayItems.slice(0, gridCount);
 
   return (
     <div
       className={`murals-gallery${view === "timeline" ? " murals-gallery--timeline" : " murals-gallery--grid"}`}
     >
-      {header}
+      <div className="murals-header">
+        <h1 className="murals-heading">Murals</h1>
+        {!showSeasonsEmpty && !showMomentsEmpty ? (
+          <ViewToggle view={view} onChange={setMode} />
+        ) : null}
+      </div>
 
-      {view === "timeline" ? (
+      {tabsSlot ? <div className="murals-tabs-mobile">{tabsSlot}</div> : null}
+
+      {showSeasonsEmpty ? (
+        <SeasonsEmpty />
+      ) : showMomentsEmpty ? (
+        <p className="murals-empty">No moments yet.</p>
+      ) : view === "timeline" ? (
         <div className="murals-timeline">
           <div className="murals-stage" aria-live="polite">
             {selected ? (
@@ -577,37 +607,46 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
 
           <div className="murals-strip-block">
             <div className="murals-strip-header">
-              <span className="murals-strip-header__label">Seasons</span>
-              <form
-                className="murals-jump"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  jumpToSeason(jumpValue);
-                }}
-              >
-                <label className="murals-jump__label" htmlFor="murals-jump-season">
-                  Jump to season
-                </label>
-                <input
-                  id="murals-jump-season"
-                  className="murals-jump__input"
-                  type="number"
-                  min={1}
-                  step={1}
-                  inputMode="numeric"
-                  value={jumpValue}
-                  onChange={(e) => {
-                    setJumpValue(e.target.value);
-                    setJumpError(null);
+              <span className="murals-strip-header__label">
+                {tab === "seasons" ? "Seasons" : "Moments"}
+              </span>
+              {tab === "seasons" ? (
+                <form
+                  className="murals-jump"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    jumpToSeason(jumpValue);
                   }}
-                  aria-describedby={jumpError ? "murals-jump-error" : undefined}
-                />
-                {jumpError ? (
-                  <span id="murals-jump-error" className="murals-jump__error">
-                    {jumpError}
-                  </span>
-                ) : null}
-              </form>
+                >
+                  <label
+                    className="murals-jump__label"
+                    htmlFor="murals-jump-season"
+                  >
+                    Jump to season
+                  </label>
+                  <input
+                    id="murals-jump-season"
+                    className="murals-jump__input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    value={jumpValue}
+                    onChange={(e) => {
+                      setJumpValue(e.target.value);
+                      setJumpError(null);
+                    }}
+                    aria-describedby={
+                      jumpError ? "murals-jump-error" : undefined
+                    }
+                  />
+                  {jumpError ? (
+                    <span id="murals-jump-error" className="murals-jump__error">
+                      {jumpError}
+                    </span>
+                  ) : null}
+                </form>
+              ) : null}
             </div>
 
             <div className="murals-strip-shell">
@@ -627,7 +666,9 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
                 ref={stripRef}
                 className="murals-strip"
                 role="listbox"
-                aria-label="Season timeline"
+                aria-label={
+                  tab === "seasons" ? "Season timeline" : "Moments timeline"
+                }
                 aria-activedescendant={
                   selectedId ? `murals-thumb-${selectedId}` : undefined
                 }
@@ -642,7 +683,7 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
                       role="option"
                       aria-selected={selectedThumb}
                       aria-current={selectedThumb ? "true" : undefined}
-                      aria-label={thumbAriaLabel(item)}
+                      aria-label={thumbAriaLabel(item, tab)}
                       className={`murals-strip__thumb${selectedThumb ? " is-selected" : ""}`}
                       style={{ width: THUMB_W }}
                       ref={(node) => {
@@ -656,7 +697,6 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
                     >
                       <span className="murals-strip__frame">
                         <MuralFrame
-                          frameKind={item.frameKind}
                           imageUrl={item.imageUrl}
                           alt=""
                           sizes={`${THUMB_W}px`}
@@ -664,9 +704,11 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
                           quality={40}
                         />
                       </span>
-                      <span className="murals-strip__season">
-                        {seasonShort(item.seasonNumber)}
-                      </span>
+                      {tab === "seasons" ? (
+                        <span className="murals-strip__season">
+                          {seasonShort(item.seasonNumber)}
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -710,6 +752,145 @@ export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
           ) : null}
         </div>
       )}
+    </div>
+  );
+}
+
+export function MuralsGalleryClient({ items }: { items: PublicMural[] }) {
+  const seasons = useMemo(
+    () => sortSeasonMurals(items.filter((item) => item.kind === "season")),
+    [items]
+  );
+  const moments = useMemo(
+    () =>
+      [...items.filter((item) => item.kind === "moment")].sort(
+        (a, b) => b.createdAt - a.createdAt
+      ),
+    [items]
+  );
+
+  const [tab, setTab] = useState<GalleryTab>("seasons");
+  const [ready, setReady] = useState(false);
+  const [wide, setWide] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 900px)");
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const onHydrate = useEffectEvent(() => {
+    const fromUrl = readQueryParam("tab");
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem("arena-murals-tab");
+    } catch {
+      /* ignore */
+    }
+    let next: GalleryTab;
+    if (fromUrl === "seasons" || fromUrl === "moments") {
+      next = fromUrl;
+    } else if (stored === "seasons" || stored === "moments") {
+      next = stored;
+    } else if (seasons.length > 0) {
+      next = "seasons";
+    } else {
+      next = "moments";
+    }
+    setTab(next);
+    replaceQuery({ tab: next });
+    setReady(true);
+  });
+
+  useEffect(() => {
+    onHydrate();
+  }, [seasons.length, moments.length]);
+
+  const selectTab = useCallback((next: GalleryTab) => {
+    setTab(next);
+    replaceQuery({ tab: next, s: null });
+  }, []);
+
+  const activeItems = tab === "seasons" ? seasons : moments;
+
+  const tabs = (
+    <div
+      className="murals-tabs__list"
+      role="tablist"
+      aria-label="Mural types"
+    >
+      <button
+        type="button"
+        role="tab"
+        id="murals-tab-seasons"
+        aria-selected={tab === "seasons"}
+        aria-controls="murals-tabpanel"
+        tabIndex={tab === "seasons" ? 0 : -1}
+        className={`murals-tabs__tab${tab === "seasons" ? " is-active" : ""}`}
+        onClick={() => selectTab("seasons")}
+      >
+        <span className="murals-tabs__name">Seasons</span>
+        <span className="murals-tabs__count">{seasons.length}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        id="murals-tab-moments"
+        aria-selected={tab === "moments"}
+        aria-controls="murals-tabpanel"
+        tabIndex={tab === "moments" ? 0 : -1}
+        className={`murals-tabs__tab${tab === "moments" ? " is-active" : ""}`}
+        onClick={() => selectTab("moments")}
+      >
+        <span className="murals-tabs__name">Moments</span>
+        <span className="murals-tabs__count">{moments.length}</span>
+      </button>
+    </div>
+  );
+
+  if (!ready) {
+    return (
+      <div className="murals-shell">
+        <div className="murals-gallery">
+          <div className="murals-header">
+            <h1 className="murals-heading">Murals</h1>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="murals-shell">
+      {wide ? (
+        <nav className="murals-tabs murals-tabs--side" aria-label="Mural types">
+          {tabs}
+        </nav>
+      ) : null}
+
+      <div
+        className="murals-tabpanel"
+        role="tabpanel"
+        id="murals-tabpanel"
+        aria-labelledby={
+          tab === "seasons" ? "murals-tab-seasons" : "murals-tab-moments"
+        }
+      >
+        <KindGallery
+          key={tab}
+          tab={tab}
+          items={activeItems}
+          tabsSlot={
+            wide ? undefined : (
+              <nav className="murals-tabs murals-tabs--top" aria-label="Mural types">
+                {tabs}
+              </nav>
+            )
+          }
+        />
+      </div>
     </div>
   );
 }
