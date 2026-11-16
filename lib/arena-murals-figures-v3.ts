@@ -24,10 +24,18 @@ type Weighted<T extends string> = { name: T; weight: number };
 
 const SCALES_SHARED = [
   "tiny (a quarter human size)",
-  "small (child-sized)",
+  "small (about half human size)",
   "human-sized",
   "tall (a head and a half over human)",
   "huge (twice human height or more)",
+] as const;
+
+const SCALES_HUMAN = [
+  "short adult",
+  "average adult",
+  "tall adult",
+  "very tall adult",
+  "giant",
 ] as const;
 
 const SCALES_CAT = [...SCALES_SHARED, "ordinary cat size"] as const;
@@ -274,7 +282,11 @@ const AGENT_FEATURES = [
   "a blank disk face",
 ] as const;
 
-const HUMAN_AGES = ["young adult", "middle-aged", "elderly"] as const;
+const HUMAN_AGES = [
+  "young adult (18 to 30)",
+  "middle-aged (31 to 50)",
+  "older (51 to 80)",
+] as const;
 
 const HUMAN_BUILDS = [
   "slight",
@@ -394,7 +406,7 @@ function makeKit(
 
 function pickHumanKit(): FactionKit {
   return makeKit("Human", {
-    scale: pickOne(SCALES_SHARED),
+    scale: pickOne(SCALES_HUMAN),
     age: pickOne(HUMAN_AGES),
     build: pickOne(HUMAN_BUILDS),
     height: pickOne(HUMAN_HEIGHTS),

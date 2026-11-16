@@ -14,7 +14,7 @@ import {
   pickFactionKits,
   type FactionKitsV3,
 } from "@/lib/arena-murals-figures-v3";
-import { pickSceneKit, type SceneKit } from "@/lib/arena-murals-scenes";
+import { pickSceneKit, type SceneKit } from "@/lib/arena-murals-scenes-v3";
 import {
   pickStyleMix,
   type MixLevelV3,
@@ -73,7 +73,7 @@ function buildBrief(input: {
   const combatRules =
     input.targetTone === "combat" || input.forceCombat
       ? `- When the moment is combat, show the clash itself: at least two figures in physical conflict, caught mid-action (a swing, a grapple, a charge, a block, a leap), at the instant of impact or just before unless the violence level says otherwise. Not a lone figure posing, not a victory stance, not the aftermath unless the violence level is aftermath, not a lone hero on wreckage. Keep it TV-14: stylized, no blood, no wounds, no gore, no dead bodies shown, no sexual content, no hate symbols.
-- Use the SCENE KIT as the starting shape of the moment; adapt it if the season data demands, but do not default to two figures grappling face to face. Vary the pose, direction, and distance of the conflict. The violence level applies only if the moment is combat. Keep it TV-14: no blood, no wounds, no gore, no dead bodies shown. Show impact through motion, flying debris, twisted poses, and the style itself. The blow should land, not just be threatened, unless the level says otherwise.
+- Use the CAST SIZE dealt exactly. Only change it if the season record makes it impossible. A group or crowd means every figure is a distinct individual, each drawn with a different silhouette, scale, and coloring from the faction kits. Do not default to two figures grappling face to face. Vary the pose, direction, and distance of the conflict. The violence level applies only if the moment is combat. Keep it TV-14: no blood, no wounds, no gore, no dead bodies shown. Show impact through motion, flying debris, twisted poses, and the style itself. The blow should land, not just be threatened, unless the level says otherwise.
 - At the brawl and all-out clash levels, the blow has already connected: a body recoiling or airborne, a weapon caught mid-impact, a shove already moving someone off their feet. Show the force through the pose and the style, not through blood or wounds. At the standoff and about-to-happen levels, hold the instant before.
 - SCENE KIT: ${sceneLabel}
 - Do not reuse these conflict beats: ${usedBeats}.`
@@ -91,7 +91,7 @@ ${toneRule}
 ${combatRules}
 - Show characters as their faction type (Human, Cat, Alien, Agent, Zombie), not as specific individuals; the named character belongs in the moment line and the statement.
 - When two factions meet, make each faction visible in its silhouette (an alien's head shape, a cat's ears and tail, an agent's machine parts, a zombie's decay), so the two sides can be told apart. Describe each side's faction first in the imagePrompt.
-- Every figure must look specific. Figures of different factions in the same image must differ clearly in scale and silhouette, not just in color. Never draw the generic default of any faction. Humans are always adults. Describe each figure's faction cues first in the imagePrompt.
+- Every figure must look specific. Figures of different factions in the same image must differ clearly in scale and silhouette, not just in color. Never draw the generic default of any faction. Humans are always clearly adult, drawn to the age range in their kit: adult proportions, adult faces, adult builds. Never draw a human as a child, a teenager, or with a youthful cartoon face, in any style, including manga, comics, and picture-book illustration. Describe each figure's faction cues first in the imagePrompt.
 - FACTION KITS: Use kit A for the first figure of each faction and kit B for the second; if there are more, vary them from A and B. Each kit sets that faction's scale, form, color, and features. Follow them, adapting only where the moment demands.
 ${input.factionKits.label}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
