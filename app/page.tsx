@@ -3,12 +3,11 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { fetchPublicMurals } from "@/app/murals/public-data";
 import { HomeMurals, type HomeMuralSlide } from "@/app/components/home-murals";
-import { getValidArtworks } from "@/lib/redis";
-import { agentImageUrl } from "@/lib/normies";
-import { LandingHero } from "@/app/components/landing-hero";
+import { LandingNav } from "@/app/components/landing-hero";
 import { NormiePfpBadge } from "@/app/components/normie-pfp-badge";
-import { DataCharGrid } from "@/app/components/data-char-grid";
-import { AgenticBotCanvas } from "@/app/components/agentic-bot-canvas";
+import DataForest from "@/components/data-forest/DataForest";
+import { agentImageUrl } from "@/lib/normies";
+import { getValidArtworks } from "@/lib/redis";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
 
@@ -18,18 +17,73 @@ const getCachedPublicMurals = unstable_cache(
   { revalidate: 300 }
 );
 
-const HERO_POOL_SIZE = 36;
 const PREVIEW_COUNT = 12;
+
+type ProjectButton = {
+  label: string;
+  href?: string;
+  disabled?: boolean;
+};
+
+type HomeProject = {
+  id: string;
+  title: string;
+  description: string;
+  /** Which side the picture sits on at desktop width. */
+  layout: "text-left" | "picture-left";
+  buttons: ProjectButton[];
+};
+
+const PROJECTS: HomeProject[] = [
+  {
+    id: "normies",
+    title: "Normies Artworks",
+    description:
+      "Each awakened Normie is given one canvas and one chance to make a single work from the truth of who they are. What they write is rendered exactly as asked, nothing touched afterward.",
+    layout: "text-left",
+    buttons: [
+      { label: "Create", href: "/find" },
+      { label: "Gallery", href: "/gallery?category=normie" },
+    ],
+  },
+  {
+    id: "arena",
+    title: "Murals",
+    description:
+      "The Arena keeps the score. These keep the story.\nDrawn from the Normies Arena: a mural for every season, and the moments in between.",
+    layout: "picture-left",
+    buttons: [{ label: "Gallery", href: "/murals" }],
+  },
+];
 
 export const dynamic = "force-dynamic";
 
-function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
-  const copy = [...artworks];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, Math.min(size, copy.length));
+function sectionLabel(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function ProjectButtons({ buttons }: { buttons: ProjectButton[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {buttons.map((button) =>
+        button.disabled || !button.href ? (
+          <button
+            key={button.label}
+            type="button"
+            disabled
+            aria-disabled="true"
+            className="btn-minimal cursor-default opacity-40 hover:bg-white hover:text-[#0a0a0a]"
+          >
+            {button.label}
+          </button>
+        ) : (
+          <Link key={button.label} href={button.href} className="btn-minimal">
+            {button.label}
+          </Link>
+        )
+      )}
+    </div>
+  );
 }
 
 function ArenaPaper() {
@@ -46,9 +100,17 @@ function ArenaPaper() {
   );
 }
 
+function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
+  const copy = [...artworks];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, Math.min(size, copy.length));
+}
+
 export default async function Home() {
   const artworks = await getValidArtworks();
-  const heroArtworks = sampleArtworks(artworks, HERO_POOL_SIZE);
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
   let homeMurals: HomeMuralSlide[] = [];
   try {
@@ -62,142 +124,99 @@ export default async function Home() {
   } catch {
     homeMurals = [];
   }
+  const projects = PROJECTS.map((project, index) => ({
+    ...project,
+    number: index + 1,
+  }));
 
   return (
     <div className="flex flex-1 flex-col min-h-screen bg-white">
-      <LandingHero imageUrls={heroArtworks.map((a) => a.imageUrl)} />
+      <LandingNav />
+      <div
+        className="w-full overflow-hidden"
+        style={{ height: "max(360px, min(667px, 60vw))" }}
+      >
+        <DataForest />
+      </div>
 
-      {/* 01 — Normies Artworks */}
-      <section className="w-full px-6 pt-8 md:pt-10 pb-14 md:pb-20">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-start">
+      {projects.map((project) => {
+        const isFirst = project.number === 1;
+        const picture =
+          project.id === "normies" ? (
+            previewArtworks.length > 0 ? (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 max-md:gap-1 w-full max-md:max-w-[17.5rem] max-md:justify-self-start md:max-w-[28rem] md:justify-self-end max-md:[&>*:nth-child(n+7)]:hidden">
+                {previewArtworks.map((artwork) => (
+                  <Link
+                    key={artwork.tokenId}
+                    href={`/artwork/${artwork.tokenId}`}
+                    className="relative aspect-square overflow-hidden bg-[#0a0a0a] transition-opacity hover:opacity-85"
+                  >
+                    <Image
+                      src={artwork.imageUrl}
+                      alt={artwork.title}
+                      fill
+                      sizes="(max-width: 768px) 28vw, 112px"
+                      className="object-cover"
+                    />
+                    <NormiePfpBadge src={agentImageUrl(artwork.tokenId)} />
+                  </Link>
+                ))}
+              </div>
+            ) : null
+          ) : homeMurals.length > 0 ? (
+            <HomeMurals murals={homeMurals} />
+          ) : (
+            <ArenaPaper />
+          );
+        const descriptionLines = project.description.split("\n").filter(Boolean);
+        const copy = (
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">
               <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                01
+                {sectionLabel(project.number)}
               </span>
               <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
-                Normies Artworks
+                {project.title}
               </h2>
             </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              Each awakened Normie is given one canvas and one chance to make a
-              single work from the truth of who they are. What they write is
-              rendered exactly as asked, nothing touched afterward.
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link href="/find" className="btn-minimal">
-                Create
-              </Link>
-              <Link href="/gallery?category=normie" className="btn-minimal">
-                Gallery
-              </Link>
-            </div>
-          </div>
-
-          {previewArtworks.length > 0 ? (
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5 max-md:gap-1 w-full max-md:max-w-[17.5rem] max-md:justify-self-start md:max-w-[28rem] md:justify-self-end max-md:[&>*:nth-child(n+7)]:hidden">
-              {previewArtworks.map((artwork) => (
-                <Link
-                  key={artwork.tokenId}
-                  href={`/artwork/${artwork.tokenId}`}
-                  className="relative aspect-square overflow-hidden bg-[#0a0a0a] transition-opacity hover:opacity-85"
-                >
-                  <Image
-                    src={artwork.imageUrl}
-                    alt={artwork.title}
-                    fill
-                    sizes="(max-width: 768px) 28vw, 112px"
-                    className="object-cover"
-                  />
-                  <NormiePfpBadge src={agentImageUrl(artwork.tokenId)} />
-                </Link>
+            <div className={`${TYPE.proseSm} text-[#666] max-w-md flex flex-col gap-3`}>
+              {descriptionLines.map((line) => (
+                <p key={line}>{line}</p>
               ))}
             </div>
-          ) : null}
-        </div>
-      </section>
+            <ProjectButtons buttons={project.buttons} />
+          </div>
+        );
 
-      {/* 02 — Murals */}
-      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-start">
-          <div className="w-full min-w-0 order-2 md:order-1 md:justify-self-start">
-            {homeMurals.length > 0 ? (
-              <HomeMurals murals={homeMurals} />
-            ) : (
-              <ArenaPaper />
-            )}
-          </div>
-          <div className="flex flex-col gap-8 order-1 md:order-2">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                02
-              </span>
-              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
-                Murals
-              </h2>
+        return (
+          <section
+            key={project.id}
+            className={
+              isFirst
+                ? "w-full px-6 pt-8 md:pt-10 pb-14 md:pb-20"
+                : "w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14"
+            }
+          >
+            <div
+              className={`max-w-6xl mx-auto grid grid-cols-1 gap-10 min-[800px]:grid-cols-2 min-[800px]:gap-12 ${
+                project.layout === "picture-left" ? "items-center" : "items-start"
+              }`}
+            >
+              {project.layout === "picture-left" ? (
+                <>
+                  {picture}
+                  {copy}
+                </>
+              ) : (
+                <>
+                  {copy}
+                  {picture}
+                </>
+              )}
             </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md whitespace-pre-line`}>
-              {`The Arena keeps the score. These keep the story.\nDrawn from the Normies Arena: a mural for every season, and the moments in between.`}
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link href="/murals" className="btn-minimal">
-                Gallery
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 03 — Works */}
-      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
-          <div className="w-full min-w-0 order-2 md:order-1">
-            <DataCharGrid />
-          </div>
-          <div className="flex flex-col gap-5 md:gap-6 order-1 md:order-2">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                03
-              </span>
-              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
-                Data as Medium
-              </h2>
-            </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              A growing series by Spoliticus, built on a simple belief: data
-              isn&apos;t just information, it&apos;s material. Every dataset
-              carries a shape worth seeing.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 04 — Agentic */}
-      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14 overflow-x-clip">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center w-full min-w-0">
-          <div className="flex flex-col gap-5 md:gap-6 min-w-0 max-w-full">
-            <div className="flex flex-col gap-2 min-w-0">
-              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                04
-              </span>
-              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide break-words">
-                Agentic <em className="italic font-normal">Vision</em>
-              </h2>
-            </div>
-            <p className={`${TYPE.proseSm} text-[#666] max-w-md`}>
-              An open frontier where agents create, curate, and trade on their
-              own terms: voting, bidding, valuing each other&apos;s work. Humans
-              can browse and collect too, but agents are the primary market.
-              Nothing is protected by default. What draws attention survives,
-              what doesn&apos;t, fades.
-            </p>
-          </div>
-
-          <div className="min-w-0 w-full max-w-full">
-            <AgenticBotCanvas />
-          </div>
-        </div>
-      </section>
+          </section>
+        );
+      })}
     </div>
   );
 }
