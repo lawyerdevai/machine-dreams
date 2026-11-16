@@ -1,5 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
+import { fetchPublicMurals } from "@/app/murals/public-data";
+import { HomeMurals, type HomeMuralSlide } from "@/app/components/home-murals";
 import { getValidArtworks } from "@/lib/redis";
 import { agentImageUrl } from "@/lib/normies";
 import { LandingHero } from "@/app/components/landing-hero";
@@ -8,6 +11,12 @@ import { DataCharGrid } from "@/app/components/data-char-grid";
 import { AgenticBotCanvas } from "@/app/components/agentic-bot-canvas";
 import { TYPE } from "@/lib/typography";
 import type { Artwork } from "@/lib/types";
+
+const getCachedPublicMurals = unstable_cache(
+  async () => fetchPublicMurals(),
+  ["home-arena-murals"],
+  { revalidate: 300 }
+);
 
 const HERO_POOL_SIZE = 36;
 const PREVIEW_COUNT = 12;
@@ -23,10 +32,36 @@ function sampleArtworks(artworks: Artwork[], size: number): Artwork[] {
   return copy.slice(0, Math.min(size, copy.length));
 }
 
+function ArenaPaper() {
+  return (
+    <div className="relative aspect-square w-full max-w-[28rem] overflow-hidden border border-[#0a0a0a] bg-[#f2ead8]">
+      <Image
+        src="/arena-portrait.png"
+        alt="Black ink figure with a headband, mid-strike on cream paper"
+        fill
+        sizes="(max-width: 800px) 100vw, 28rem"
+        className="object-cover"
+      />
+    </div>
+  );
+}
+
 export default async function Home() {
   const artworks = await getValidArtworks();
   const heroArtworks = sampleArtworks(artworks, HERO_POOL_SIZE);
   const previewArtworks = sampleArtworks(artworks, PREVIEW_COUNT);
+  let homeMurals: HomeMuralSlide[] = [];
+  try {
+    const murals = await getCachedPublicMurals();
+    homeMurals = murals.slice(0, 8).map((mural) => ({
+      id: mural.id,
+      imageUrl: mural.imageUrl,
+      title: mural.title,
+      caption: mural.caption,
+    }));
+  } catch {
+    homeMurals = [];
+  }
 
   return (
     <div className="flex flex-1 flex-col min-h-screen bg-white">
@@ -82,7 +117,38 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 02 — Works */}
+      {/* 02 — Murals */}
+      <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-start">
+          <div className="w-full min-w-0 order-2 md:order-1 md:justify-self-start">
+            {homeMurals.length > 0 ? (
+              <HomeMurals murals={homeMurals} />
+            ) : (
+              <ArenaPaper />
+            )}
+          </div>
+          <div className="flex flex-col gap-8 order-1 md:order-2">
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
+                02
+              </span>
+              <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
+                Murals
+              </h2>
+            </div>
+            <p className={`${TYPE.proseSm} text-[#666] max-w-md whitespace-pre-line`}>
+              {`The Arena keeps the score. These keep the story.\nDrawn from the Normies Arena: a mural for every season, and the moments in between.`}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/murals" className="btn-minimal">
+                Gallery
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 03 — Works */}
       <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
           <div className="w-full min-w-0 order-2 md:order-1">
@@ -91,7 +157,7 @@ export default async function Home() {
           <div className="flex flex-col gap-5 md:gap-6 order-1 md:order-2">
             <div className="flex flex-col gap-2">
               <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                02
+                03
               </span>
               <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide">
                 Data as Medium
@@ -106,13 +172,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 03 — Agentic */}
+      {/* 04 — Agentic */}
       <section className="w-full border-t border-[#0a0a0a] px-6 py-10 md:py-14 overflow-x-clip">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center w-full min-w-0">
           <div className="flex flex-col gap-5 md:gap-6 min-w-0 max-w-full">
             <div className="flex flex-col gap-2 min-w-0">
               <span className="font-mono text-[72px] md:text-[120px] leading-none font-normal text-[#e8e8e8] select-none">
-                03
+                04
               </span>
               <h2 className="page-title uppercase text-2xl md:text-3xl tracking-wide break-words">
                 Agentic <em className="italic font-normal">Vision</em>

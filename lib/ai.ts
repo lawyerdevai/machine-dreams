@@ -33,13 +33,17 @@ export function extractImageUrl(output: unknown): string {
   return String(output);
 }
 
-export async function generateImage(prompt: string): Promise<string> {
+export async function generateImage(
+  prompt: string,
+  options?: { seed?: number; aspectRatio?: string }
+): Promise<string> {
   const output = await replicate.run("black-forest-labs/flux-1.1-pro", {
     input: {
       prompt,
-      aspect_ratio: "1:1",
+      aspect_ratio: options?.aspectRatio ?? "1:1",
       output_format: "webp",
       output_quality: 90,
+      ...(options?.seed !== undefined ? { seed: options.seed } : {}),
     },
   });
   return extractImageUrl(output);
