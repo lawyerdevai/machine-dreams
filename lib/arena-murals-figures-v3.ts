@@ -22,6 +22,12 @@ export type FactionKitsV3 = {
 
 type Weighted<T extends string> = { name: T; weight: number };
 
+const ORIGIN_GUIDANCE =
+  "Let the origin shape the body, skin, eyes, build, materials, and clothing.";
+
+const WILDCARD_TEXT =
+  "Invent a body form for this faction that is not on any list: a hybrid, a mixed-faction body, or something new.";
+
 const SCALES_SHARED = [
   "tiny (a quarter human size)",
   "small (about half human size)",
@@ -48,6 +54,20 @@ const CAT_FORMS: readonly Weighted<string>[] = [
   { name: "cat head on a human-shaped body", weight: 10 },
   { name: "panther-sized on four legs", weight: 10 },
   { name: "a large cat the size of a horse on four legs", weight: 10 },
+  { name: "cat head on a human body", weight: 5 },
+  { name: "human body with cat ears and tail", weight: 5 },
+  { name: "cat body with human hands", weight: 5 },
+  { name: "human torso on a four-legged cat body", weight: 5 },
+  { name: "four-armed cat", weight: 5 },
+  { name: "two-headed cat", weight: 5 },
+  { name: "very long and low cat", weight: 5 },
+  { name: "cat in plated armor", weight: 5 },
+  { name: "cat inside a small machine", weight: 5 },
+  { name: "patchwork cat of mismatched coats", weight: 5 },
+  { name: "tiny cat the size of a cup", weight: 5 },
+  { name: "huge cat the size of a house", weight: 5 },
+  { name: "cat with a human's posture and a cat's face", weight: 5 },
+  { name: "cat with a long scarf as part of the silhouette", weight: 5 },
 ];
 
 const CAT_COATS = [
@@ -95,6 +115,25 @@ const ALIENNESS = [
   "half human and half alien",
   "human-shaped with strange skin and eyes",
   "nearly human with one wrong detail",
+] as const;
+
+const ALIEN_ORIGINS = [
+  "desert world with two suns",
+  "deep-ocean world",
+  "frozen moon",
+  "gas-giant cloud city",
+  "dense jungle world",
+  "volcanic world",
+  "underground cave world",
+  "born on an orbital station",
+  "binary-star twilight world",
+  "crystal planet",
+  "swamp world",
+  "high-gravity world (stocky, dense)",
+  "low-gravity world (tall, thin)",
+  "tidally locked dark side",
+  "storm world",
+  "fungal forest world",
 ] as const;
 
 const ALIEN_BODY_PLANS = [
@@ -195,6 +234,16 @@ const ZOMBIE_BUILDS = [
   "broad and shambling",
   "twisted at the hip",
   "long-armed",
+  "half skeletal and half intact",
+  "a group fused into one body",
+  "hollow figure that is just clothes and bones",
+  "zombie of a non-human body",
+  "tall and stretched",
+  "short and wide",
+  "crawling on all fours",
+  "hunched under a heavy load",
+  "split down the middle and resewn",
+  "one arm too long for the torso",
 ] as const;
 
 const ZOMBIE_CLOTHING = [
@@ -246,6 +295,14 @@ const AGENT_MACHINE_TYPES = [
   "screen-faced figure with a blank face (no text)",
   "tripod walker",
   "hollow suit of armor",
+  "a small machine riding a larger one",
+  "a figure made of many small drones",
+  "a machine built from household objects",
+  "a one-wheeled walker",
+  "an armored suit with nobody visible inside",
+  "a tall thin machine with long arms",
+  "a round machine with no limbs",
+  "a machine that is mostly a tool",
 ] as const;
 
 const AGENT_COLORS = [
@@ -286,6 +343,23 @@ const HUMAN_AGES = [
   "young adult (18 to 30)",
   "middle-aged (31 to 50)",
   "older (51 to 80)",
+] as const;
+
+const HUMAN_ORIGINS = [
+  "coastal fishing town",
+  "mountain village",
+  "desert caravan",
+  "northern tundra settlement",
+  "river delta",
+  "island community",
+  "big city",
+  "farmland",
+  "mining town",
+  "nomadic herders",
+  "monastery",
+  "shipyard",
+  "market quarter",
+  "highland plateau",
 ] as const;
 
 const HUMAN_BUILDS = [
@@ -392,6 +466,18 @@ function pickTwo(list: readonly string[]): [string, string] {
   return [first, second];
 }
 
+function applyWildcard(
+  traits: Record<string, string>,
+  formKey: string
+): Record<string, string> {
+  if (Math.random() >= 0.2) return traits;
+  return {
+    ...traits,
+    [formKey]: WILDCARD_TEXT,
+    WILDCARD: WILDCARD_TEXT,
+  };
+}
+
 function makeKit(
   faction: FactionName,
   traits: Record<string, string>
@@ -405,58 +491,82 @@ function makeKit(
 }
 
 function pickHumanKit(): FactionKit {
-  return makeKit("Human", {
-    scale: pickOne(SCALES_HUMAN),
-    age: pickOne(HUMAN_AGES),
-    build: pickOne(HUMAN_BUILDS),
-    height: pickOne(HUMAN_HEIGHTS),
-    skin: pickOne(HUMAN_SKIN_TONES),
-    hair: pickOne(HUMAN_HAIR),
-    dress: pickOne(HUMAN_DRESS),
-    posture: pickOne(HUMAN_POSTURES),
-  });
+  const traits = applyWildcard(
+    {
+      scale: pickOne(SCALES_HUMAN),
+      age: pickOne(HUMAN_AGES),
+      origin: pickOne(HUMAN_ORIGINS),
+      "origin guidance": ORIGIN_GUIDANCE,
+      build: pickOne(HUMAN_BUILDS),
+      height: pickOne(HUMAN_HEIGHTS),
+      skin: `${pickOne(HUMAN_SKIN_TONES)}; reflect a wide range of the world's peoples, drawn respectfully and without caricature`,
+      hair: pickOne(HUMAN_HAIR),
+      dress: pickOne(HUMAN_DRESS),
+      posture: pickOne(HUMAN_POSTURES),
+    },
+    "form"
+  );
+  return makeKit("Human", traits);
 }
 
 function pickCatKit(): FactionKit {
   const [featureA, featureB] = pickTwo(CAT_FEATURES);
-  return makeKit("Cat", {
-    scale: pickOne(SCALES_CAT),
-    form: pickWeighted(CAT_FORMS),
-    coat: pickOne(CAT_COATS),
-    features: `${featureA}; ${featureB}`,
-  });
+  const traits = applyWildcard(
+    {
+      scale: pickOne(SCALES_CAT),
+      form: pickWeighted(CAT_FORMS),
+      coat: pickOne(CAT_COATS),
+      features: `${featureA}; ${featureB}`,
+    },
+    "form"
+  );
+  return makeKit("Cat", traits);
 }
 
 function pickAlienKit(): FactionKit {
   const [featureA, featureB] = pickTwo(ALIEN_FEATURES);
-  return makeKit("Alien", {
-    scale: pickOne(SCALES_SHARED),
-    alienness: pickOne(ALIENNESS),
-    bodyPlan: pickOne(ALIEN_BODY_PLANS),
-    skin: pickOne(ALIEN_SKINS),
-    features: `${featureA}; ${featureB}`,
-  });
+  const traits = applyWildcard(
+    {
+      scale: pickOne(SCALES_SHARED),
+      origin: pickOne(ALIEN_ORIGINS),
+      "origin guidance": ORIGIN_GUIDANCE,
+      alienness: pickOne(ALIENNESS),
+      form: pickOne(ALIEN_BODY_PLANS),
+      skin: pickOne(ALIEN_SKINS),
+      features: `${featureA}; ${featureB}`,
+    },
+    "form"
+  );
+  return makeKit("Alien", traits);
 }
 
 function pickAgentKit(): FactionKit {
   const [featureA, featureB] = pickTwo(AGENT_FEATURES);
-  return makeKit("Agent", {
-    scale: pickOne(SCALES_SHARED),
-    machineType: pickOne(AGENT_MACHINE_TYPES),
-    color: pickOne(AGENT_COLORS),
-    features: `${featureA}; ${featureB}`,
-  });
+  const traits = applyWildcard(
+    {
+      scale: pickOne(SCALES_SHARED),
+      form: pickOne(AGENT_MACHINE_TYPES),
+      color: pickOne(AGENT_COLORS),
+      features: `${featureA}; ${featureB}`,
+    },
+    "form"
+  );
+  return makeKit("Agent", traits);
 }
 
 function pickZombieKit(): FactionKit {
-  return makeKit("Zombie", {
-    scale: pickOne(SCALES_SHARED),
-    decay: pickOne(ZOMBIE_DECAY),
-    color: pickOne(ZOMBIE_COLORS),
-    build: pickOne(ZOMBIE_BUILDS),
-    clothing: pickOne(ZOMBIE_CLOTHING),
-    posture: pickOne(ZOMBIE_POSTURES),
-  });
+  const traits = applyWildcard(
+    {
+      scale: pickOne(SCALES_SHARED),
+      decay: pickOne(ZOMBIE_DECAY),
+      color: pickOne(ZOMBIE_COLORS),
+      form: pickOne(ZOMBIE_BUILDS),
+      clothing: pickOne(ZOMBIE_CLOTHING),
+      posture: pickOne(ZOMBIE_POSTURES),
+    },
+    "form"
+  );
+  return makeKit("Zombie", traits);
 }
 
 function pair(faction: FactionName, roll: () => FactionKit): {

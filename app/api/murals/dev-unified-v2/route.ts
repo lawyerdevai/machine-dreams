@@ -81,9 +81,11 @@ Rules:
 ${toneRule}
 ${combatRules}
 - Show characters as their faction type (Human, Cat, Alien, Agent, Zombie), not as specific individuals; the named character belongs in the moment line and the statement.
-- When two factions meet, make each faction visible in its silhouette (an alien's head shape, a cat's ears and tail, an agent's machine parts, a zombie's decay), so the two sides can be told apart. Describe each side's faction first in the imagePrompt.
+- When two factions meet, make each faction visible in its silhouette (an alien's head shape, a cat's ears and tail, an agent's machine parts, a zombie's decay), so the two sides can be told apart. Describe each figure's visible faction cues first, without the banned words.
 - Every figure must look specific and different from the last. Apply the FIGURE KIT to whichever faction you draw, adapting freely. A Cat can be any coat, size, or posture; an Alien any skin color, head shape, or number of eyes; a Human or Agent any adult build and dress; a Zombie any stage of decay. Never default to the generic version of a faction.
 - Humans are always clearly adult, aged 18 to 80: adult proportions, adult faces, adult builds. Never draw a human, or any humanlike figure, as a child or teenager, or with a youthful cartoon face, in any style, including manga, comics, and picture-book illustration.
+- In the imagePrompt, never use the words alien, extraterrestrial, zombie, undead, robot, android, or cyborg. Image models turn those words into one generic stock look. Describe the body directly: skin, limbs, eyes, silhouette, materials, and clothing.
+- A figure's origin or habitat shapes only that figure's body, skin, eyes, build, and clothing. It never changes the setting. The setting, background, and light come only from the season moment. Do not draw the home world, habitat, or scenery of any figure's origin.
 - FIGURE KIT: ${input.figureKit.label}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together. If two hybrid styles don't combine naturally, let the stronger one dominate.
