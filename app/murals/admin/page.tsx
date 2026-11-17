@@ -21,6 +21,32 @@ type RowDraft = {
   day: string;
 };
 
+type CastLineRow = {
+  id: string;
+  name: string;
+  description: string;
+};
+
+function newCastLineId() {
+  return `cast-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emptyCastLine(): CastLineRow {
+  return { id: newCastLineId(), name: "", description: "" };
+}
+
+function serializeCastLines(lines: CastLineRow[]): string {
+  return lines
+    .map((line) => {
+      const name = line.name.trim();
+      if (!name) return "";
+      const description = line.description.trim();
+      return description ? `${name}: ${description}` : name;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
 function isDevEnv() {
   return process.env.NODE_ENV === "development";
 }
@@ -118,7 +144,11 @@ export default function MuralsAdminPage() {
   const [sourceText, setSourceText] = useState("");
   const [sourceFocus, setSourceFocus] = useState("");
   const [directedScene, setDirectedScene] = useState("");
-  const [directedCast, setDirectedCast] = useState("");
+  const [castLines, setCastLines] = useState<CastLineRow[]>([emptyCastLine()]);
+  const [describeBusyId, setDescribeBusyId] = useState<string | null>(null);
+  const castFileInputsRef = useRef<Record<string, HTMLInputElement | null>>(
+    {}
+  );
   const [testingOpen, setTestingOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
   const [importKind, setImportKind] = useState<MuralKind>("moment");
@@ -315,11 +345,66 @@ export default function MuralsAdminPage() {
     }
   }
 
+  async function describeCastFromImage(lineId: string, file?: File | null) {
+    if (describeBusyId || generating || batchRunning) return;
+    const line = castLines.find((row) => row.id === lineId);
+    if (!line) return;
+    const query = line.name.trim();
+    if (!file && !query) {
+      setNotice("Enter a name or token ID, or choose an image first.");
+      return;
+    }
+    setDescribeBusyId(lineId);
+    setNotice(null);
+    try {
+      const form = new FormData();
+      if (file) form.append("image", file);
+      if (query) form.append("query", query);
+      const h: HeadersInit = {};
+      if (!isDevEnv() && adminKey.trim()) {
+        h["x-admin-key"] = adminKey.trim();
+      }
+      const res = await fetch("/api/murals/admin/describe-cast", {
+        method: "POST",
+        headers: h,
+        body: form,
+      });
+      if (res.status === 401 || res.status === 429) {
+        lockAdmin();
+        if (res.status === 429) {
+          setNotice("Too many attempts. Try again later.");
+        }
+        return;
+      }
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        description?: string;
+        error?: string;
+      } | null;
+      if (!res.ok || !data?.ok || !data.description) {
+        setNotice(data?.error ?? "Describe from image failed.");
+        return;
+      }
+      setCastLines((prev) =>
+        prev.map((row) =>
+          row.id === lineId ? { ...row, description: data.description! } : row
+        )
+      );
+      setNotice("Description filled — edit as needed.");
+    } catch {
+      setNotice("Describe from image failed.");
+    } finally {
+      setDescribeBusyId(null);
+      const input = castFileInputsRef.current[lineId];
+      if (input) input.value = "";
+    }
+  }
+
   async function generateFromSource() {
     if (generating || batchRunning) return;
     const source = sourceText.trim();
     const scene = directedScene.trim();
-    const cast = directedCast.trim();
+    const cast = serializeCastLines(castLines);
     const directed = generateMode === "directed";
     if (!directed && !source) {
       setNotice("Paste source text first.");
@@ -758,18 +843,127 @@ export default function MuralsAdminPage() {
                 className="border border-[#0a0a0a] bg-transparent px-2 py-1 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
               />
             </label>
-            <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-              Cast
-              <textarea
-                value={directedCast}
-                rows={4}
-                disabled={generateBusy}
-                maxLength={4000}
-                placeholder={"One line per character:\nName: description"}
-                onChange={(e) => setDirectedCast(e.target.value)}
-                className="border border-[#0a0a0a] bg-transparent px-2 py-2 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
-              />
-            </label>
+            <div className="flex flex-col gap-2">
+              <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                Cast
+              </p>
+              <ul className="flex flex-col gap-3">
+                {castLines.map((line) => (
+                  <li
+                    key={line.id}
+                    className="flex flex-col gap-2 border border-[#0a0a0a] p-3"
+                  >
+                    <div className="flex flex-wrap items-end gap-2">
+                      <label className="flex min-w-[8rem] flex-1 flex-col gap-1 font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                        Name / token ID
+                        <input
+                          type="text"
+                          value={line.name}
+                          disabled={generateBusy || describeBusyId === line.id}
+                          maxLength={80}
+                          placeholder="Name or token ID"
+                          onChange={(e) =>
+                            setCastLines((prev) =>
+                              prev.map((row) =>
+                                row.id === line.id
+                                  ? { ...row, name: e.target.value }
+                                  : row
+                              )
+                            )
+                          }
+                          className="border border-[#0a0a0a] bg-transparent px-2 py-1 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+                        />
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          ref={(el) => {
+                            castFileInputsRef.current[line.id] = el;
+                          }}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={generateBusy || describeBusyId === line.id}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            if (file) void describeCastFromImage(line.id, file);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={generateBusy || describeBusyId !== null}
+                          onClick={() =>
+                            castFileInputsRef.current[line.id]?.click()
+                          }
+                          className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666] underline-offset-2 hover:underline disabled:opacity-40"
+                        >
+                          Upload image
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            generateBusy ||
+                            describeBusyId !== null ||
+                            !line.name.trim()
+                          }
+                          onClick={() => void describeCastFromImage(line.id)}
+                          className="btn-minimal disabled:opacity-40"
+                        >
+                          {describeBusyId === line.id
+                            ? "Describing..."
+                            : "Describe from image"}
+                        </button>
+                        {castLines.length > 1 ? (
+                          <button
+                            type="button"
+                            disabled={
+                              generateBusy || describeBusyId === line.id
+                            }
+                            onClick={() =>
+                              setCastLines((prev) =>
+                                prev.filter((row) => row.id !== line.id)
+                              )
+                            }
+                            className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666] underline-offset-2 hover:underline disabled:opacity-40"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    <label className="flex flex-col gap-1 font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                      Description
+                      <textarea
+                        value={line.description}
+                        rows={2}
+                        disabled={generateBusy || describeBusyId === line.id}
+                        maxLength={500}
+                        placeholder="Visible features in plain words"
+                        onChange={(e) =>
+                          setCastLines((prev) =>
+                            prev.map((row) =>
+                              row.id === line.id
+                                ? { ...row, description: e.target.value }
+                                : row
+                            )
+                          )
+                        }
+                        className="border border-[#0a0a0a] bg-transparent px-2 py-2 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+                      />
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                disabled={generateBusy || describeBusyId !== null}
+                onClick={() =>
+                  setCastLines((prev) => [...prev, emptyCastLine()])
+                }
+                className="self-start font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666] underline-offset-2 hover:underline disabled:opacity-40"
+              >
+                Add cast line
+              </button>
+            </div>
           </>
         ) : null}
         <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
@@ -802,11 +996,12 @@ export default function MuralsAdminPage() {
             disabled={
               generateBusy ||
               loading ||
+              describeBusyId !== null ||
               (generateMode === "auto"
                 ? !sourceText.trim()
                 : !sourceText.trim() &&
                   !directedScene.trim() &&
-                  !directedCast.trim())
+                  !serializeCastLines(castLines))
             }
             className="btn-minimal disabled:opacity-40"
           >
