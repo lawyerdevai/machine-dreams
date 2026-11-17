@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { fetchPublicMural, fetchPublicMurals } from "../public-data";
 import { sortSeasonMurals } from "../public-types";
 import { ViewingRoomClient } from "../viewing-room-client";
@@ -68,12 +69,14 @@ export default async function MuralViewingRoomPage({ params }: PageProps) {
 
   return (
     <main className="murals-page">
-      <ViewingRoomClient
-        item={item}
-        newerId={newerId}
-        olderId={olderId}
-        galleryHref={galleryHref}
-      />
+      <Suspense fallback={null}>
+        <ViewingRoomClient
+          item={item}
+          newerId={newerId}
+          olderId={olderId}
+          galleryHref={galleryHref}
+        />
+      </Suspense>
     </main>
   );
 }
