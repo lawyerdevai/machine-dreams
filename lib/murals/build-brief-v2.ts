@@ -99,7 +99,10 @@ ${castRules}`
     ? `- FIGURE KIT: Apply to unnamed figures and as form/scale/origin scaffolding for matched CAST Normies of the matching faction; then apply each cast Normie's brief traits. ${input.figureKit.label}`
     : `- FIGURE KIT: ${input.figureKit.label}`;
 
-  const directionBlock = bindingDirectionSection(input.direction);
+  const directionBlock = bindingDirectionSection(
+    input.direction,
+    input.normieCast
+  );
 
   return `You are making one artwork that records a season of a world called the Arena, where AI-agent Normies of five factions (Human, Cat, Alien, Agent, Zombie) live, fight, trade, vote, and die. Below is the record of the season.
 

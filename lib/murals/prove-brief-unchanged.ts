@@ -162,87 +162,54 @@ function sha(text: string) {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
-/** Extract top-level function by line range (brace-count fails inside templates). */
-function extractLines(
-  source: string,
-  startInclusive: number,
-  endInclusive: number
-): string {
-  const lines = source.split("\n");
-  return lines.slice(startInclusive - 1, endInclusive).join("\n");
-}
-
-function findLine(source: string, pattern: RegExp): number {
-  const lines = source.split("\n");
-  const idx = lines.findIndex((line) => pattern.test(line));
-  if (idx < 0) throw new Error(`Pattern not found: ${pattern}`);
-  return idx + 1;
-}
-
-function writeMainBriefModule(
-  enginePath: string,
-  outPath: string,
-  exportName: string,
-  opts: { helperStart?: RegExp; briefStart: RegExp; briefEnd: RegExp }
-) {
-  const source = execSync(`git show main:${enginePath}`, {
-    encoding: "utf8",
-    cwd: ROOT,
-  });
-  const imageSuffixMatch = source.match(
-    /const IMAGE_SUFFIX =\s*\n\s*"([^"]+)";/
-  );
-  if (!imageSuffixMatch) throw new Error(`IMAGE_SUFFIX missing in ${enginePath}`);
-  const parts: string[] = [
-    `import { hasMatchedNormieCast, textPathCastBriefRules } from ${JSON.stringify(
-      join(ROOT, "lib/murals/brief-cast.ts")
-    )};`,
-    `import { formatSeasonRecord } from ${JSON.stringify(
-      join(ROOT, "lib/murals/season.ts")
-    )};`,
-    `const IMAGE_SUFFIX = "${imageSuffixMatch[1]}";`,
-  ];
-  const briefStart = findLine(source, opts.briefStart);
-  const briefEnd = findLine(source, opts.briefEnd) - 1;
-  if (opts.helperStart) {
-    const helperStart = findLine(source, opts.helperStart);
-    parts.push(extractLines(source, helperStart, briefStart - 1));
-  }
-  const fn = extractLines(source, briefStart, briefEnd).replace(
-    /^function buildBrief/,
-    `export function ${exportName}`
-  );
-  parts.push(fn);
-  writeFileSync(outPath, parts.join("\n\n") + "\n", "utf8");
+/** Rewrite relative murals imports so main's brief modules load from a temp dir. */
+function rewriteMuralsImports(source: string, dir: string): string {
+  return source
+    .replaceAll(
+      'from "./direction"',
+      `from ${JSON.stringify(join(dir, "direction.ts"))}`
+    )
+    .replaceAll(
+      'from "./brief-cast"',
+      `from ${JSON.stringify(join(dir, "brief-cast.ts"))}`
+    )
+    .replaceAll(
+      'from "./season"',
+      `from ${JSON.stringify(join(ROOT, "lib/murals/season.ts"))}`
+    )
+    .replaceAll(
+      'from "./types"',
+      `from ${JSON.stringify(join(ROOT, "lib/murals/types.ts"))}`
+    );
 }
 
 async function loadMainBuilders(dir: string) {
-  writeMainBriefModule(
-    "lib/murals/engine-v3.ts",
-    join(dir, "main-brief-v3.ts"),
-    "buildBriefMainV3",
-    {
-      helperStart: /^function sceneKitLabelWithoutCamera/,
-      briefStart: /^function buildBrief\(/,
-      briefEnd: /^type UnifiedBriefV3/,
-    }
-  );
-  writeMainBriefModule(
-    "lib/murals/engine-v2.ts",
-    join(dir, "main-brief-v2.ts"),
-    "buildBriefMainV2",
-    {
-      briefStart: /^function buildBrief\(/,
-      briefEnd: /^type UnifiedBriefV2/,
-    }
-  );
-  const v3 = (await import(pathToFileURL(join(dir, "main-brief-v3.ts")).href)) as {
-    buildBriefMainV3: (input: typeof v3Input) => string;
+  for (const name of [
+    "direction.ts",
+    "brief-cast.ts",
+    "build-brief-v2.ts",
+    "build-brief-v3.ts",
+  ]) {
+    const source = execSync(`git show main:lib/murals/${name}`, {
+      encoding: "utf8",
+      cwd: ROOT,
+    });
+    writeFileSync(join(dir, name), rewriteMuralsImports(source, dir), "utf8");
+  }
+  const v3 = (await import(
+    pathToFileURL(join(dir, "build-brief-v3.ts")).href
+  )) as {
+    buildBriefV3: (input: typeof v3Input) => string;
   };
-  const v2 = (await import(pathToFileURL(join(dir, "main-brief-v2.ts")).href)) as {
-    buildBriefMainV2: (input: typeof v2Input) => string;
+  const v2 = (await import(
+    pathToFileURL(join(dir, "build-brief-v2.ts")).href
+  )) as {
+    buildBriefV2: (input: typeof v2Input) => string;
   };
-  return { buildBriefMainV3: v3.buildBriefMainV3, buildBriefMainV2: v2.buildBriefMainV2 };
+  return {
+    buildBriefMainV3: v3.buildBriefV3,
+    buildBriefMainV2: v2.buildBriefV2,
+  };
 }
 
 function assertEqual(label: string, a: string, b: string) {
