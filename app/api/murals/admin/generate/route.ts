@@ -114,6 +114,20 @@ export async function POST(request: Request) {
           }
         : undefined;
 
+    let engine: "v2" | "v3" | undefined;
+    if (body?.engine !== undefined && body?.engine !== null) {
+      if (body.engine === "random") {
+        engine = undefined;
+      } else if (body.engine === "v2" || body.engine === "v3") {
+        engine = body.engine;
+      } else {
+        return NextResponse.json(
+          { error: 'Invalid engine. Use "random", "v2", or "v3".' },
+          { status: 400 }
+        );
+      }
+    }
+
     const result = await generateMural({
       kind,
       ...(seasonId ? { seasonId } : {}),
@@ -124,6 +138,7 @@ export async function POST(request: Request) {
       ...(source ? { source } : {}),
       ...(focus ? { focus } : {}),
       ...(direction ? { direction } : {}),
+      ...(engine ? { engine } : {}),
     });
     if (!result.ok) {
       return NextResponse.json(
