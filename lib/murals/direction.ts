@@ -15,6 +15,19 @@ export type DirectedCastLine = {
 
 const FACTION_TYPE_RE = /\b(Human|Cat|Alien|Agent|Zombie)\b/i;
 
+/**
+ * Directed Cast "Name / Token ID" only: whole number, optionally with a leading #.
+ * Returns null for normal names (e.g. "Dexro").
+ */
+export function parseDirectedTokenId(raw: string): number | null {
+  const trimmed = raw.trim();
+  const match = /^#?(\d+)$/.exec(trimmed);
+  if (!match) return null;
+  const n = Number(match[1]);
+  if (!Number.isInteger(n) || n < 0 || n > 9999) return null;
+  return n;
+}
+
 /** Trim and drop empties; returns undefined when both scene and cast are blank. */
 export function normalizeDirection(
   direction?: MuralDirection | null
@@ -64,14 +77,22 @@ export function typeFromDirectedDescription(
   return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
 
+type BindingCastMember = {
+  name: string;
+  status: string;
+};
+
 /**
  * BINDING DIRECTION block inserted after style (and cast) rules.
  * Returns "" when direction is absent or both fields empty — must not
  * change the brief string in that case (leading newline is included only
  * when content is present so the template stays byte-identical).
+ * When resolvedCast is provided (Directed lookup), matched members' API
+ * names label the cast lines instead of a raw token id.
  */
 export function bindingDirectionSection(
-  direction?: MuralDirection | null
+  direction?: MuralDirection | null,
+  resolvedCast?: BindingCastMember[]
 ): string {
   const d = normalizeDirection(direction);
   if (!d) return "";
@@ -89,11 +110,16 @@ export function bindingDirectionSection(
     const castBody =
       castLines.length > 0
         ? castLines
-            .map((line) =>
-              line.description
-                ? `  - ${line.name}: ${line.description}`
-                : `  - ${line.name}`
-            )
+            .map((line, index) => {
+              const resolved = resolvedCast?.[index];
+              const label =
+                resolved?.status === "matched" && resolved.name.trim()
+                  ? resolved.name.trim()
+                  : line.name;
+              return line.description
+                ? `  - ${label}: ${line.description}`
+                : `  - ${label}`;
+            })
             .join("\n")
         : `  ${d.cast}`;
     lines.push(

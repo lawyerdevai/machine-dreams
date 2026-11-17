@@ -103,7 +103,10 @@ ${castRules}`
 
   // bindingDirectionSection returns "" when direction is absent/empty — empty
   // must keep the brief byte-identical to main (see prove-murals-brief-unchanged).
-  const directionBlock = bindingDirectionSection(input.direction);
+  const directionBlock = bindingDirectionSection(
+    input.direction,
+    input.normieCast
+  );
 
   return `You are making one artwork that records a season of a world called the Arena, where AI-agent Normies of five factions (Human, Cat, Alien, Agent, Zombie) live, fight, trade, vote, and die. Below is the record of the season.
 

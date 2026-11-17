@@ -9,6 +9,7 @@ import {
 } from "./brief-cast";
 import {
   parseDirectedCastLines,
+  parseDirectedTokenId,
   typeFromDirectedDescription,
 } from "./direction";
 import type { NormieCastMember } from "./types";
@@ -353,9 +354,54 @@ export async function buildNormieCast(
 }
 
 /**
- * Directed cast: look up each Name: description line. Matched Normies keep full
- * API traits on the record; the brief uses directedDescription instead. Type
- * comes from the description when stated, otherwise from the API.
+ * Directed Cast row only: resolve a whole-number token id via identity, or a
+ * name via the existing search path. Does not affect Auto / source extraction.
+ */
+async function lookupDirectedCastQuery(
+  query: string
+): Promise<NormieCastMember> {
+  const tokenId = parseDirectedTokenId(query);
+  if (tokenId != null) {
+    try {
+      const identity = await getIdentity(tokenId);
+      const name =
+        typeof identity?.name === "string" && identity.name.trim()
+          ? identity.name.trim()
+          : "";
+      if (!name) {
+        return { name: String(tokenId), status: "not_found" as const };
+      }
+      const type =
+        typeof identity?.type === "string" && identity.type.trim()
+          ? identity.type.trim()
+          : undefined;
+      const traits = traitsFromIdentity(identity);
+      return {
+        name,
+        tokenId,
+        ...(type ? { type } : {}),
+        ...(traits ? { traits } : {}),
+        status: "matched" as const,
+      };
+    } catch (error) {
+      console.warn(
+        `[murals] lookup directed tokenId=${tokenId} failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return { name: String(tokenId), status: "not_found" as const };
+    }
+  }
+
+  const [member] = await buildNormieCastFromNames([query]);
+  return member ?? { name: query, status: "not_found" as const };
+}
+
+/**
+ * Directed cast: look up each Name / token ID: description line. Matched
+ * Normies keep full API traits on the record; the brief uses
+ * directedDescription instead. Type comes from the description when stated,
+ * otherwise from the API. Token IDs resolve via /agents/identity/{tokenId}.
  */
 export async function buildDirectedNormieCast(
   castText: string
@@ -363,21 +409,12 @@ export async function buildDirectedNormieCast(
   const lines = parseDirectedCastLines(castText);
   if (lines.length === 0) return [];
 
-  const looked = await buildNormieCastFromNames(lines.map((l) => l.name));
-  const byName = new Map(
-    looked.map((member) => [member.name.toLowerCase(), member])
-  );
-
-  return lines.map((line) => {
-    const member = byName.get(line.name.toLowerCase()) ?? {
-      name: line.name,
-      status: "not_found" as const,
-    };
+  return mapPool(lines, CONCURRENCY, async (line) => {
+    const member = await lookupDirectedCastQuery(line.name);
     const typeFromDesc = typeFromDirectedDescription(line.description);
     const type = typeFromDesc ?? member.type;
     return {
       ...member,
-      name: line.name,
       ...(type ? { type } : {}),
       ...(line.description
         ? { directedDescription: line.description }
