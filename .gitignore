@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Local Redis credential stubs (never commit)
+.redis-preview.local
+.redis-prod.local
+
 # vercel
 .vercel
 
