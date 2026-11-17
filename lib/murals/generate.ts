@@ -2,7 +2,14 @@ import { randomUUID } from "crypto";
 import { runV2, type RunV2Result } from "./engine-v2";
 import { runV3, type RunV3Result } from "./engine-v3";
 import { frameKindFor } from "./frame";
-import { buildNormieCast } from "./normies";
+import {
+  normalizeDirection,
+  type MuralDirection,
+} from "./direction";
+import {
+  buildDirectedNormieCast,
+  buildNormieCast,
+} from "./normies";
 import {
   getSeasonRecord,
   seasonRecordFromSource,
@@ -47,6 +54,8 @@ async function saveSuccess(
       source?: string;
       focus?: string;
       normieCast?: NormieCastMember[];
+      directedScene?: string;
+      directedCast?: string;
     };
   }
 ): Promise<MuralItem> {
@@ -88,6 +97,12 @@ async function saveSuccess(
     ...(opts.sourceMeta?.focus ? { focus: opts.sourceMeta.focus } : {}),
     ...(opts.sourceMeta?.normieCast
       ? { normieCast: opts.sourceMeta.normieCast }
+      : {}),
+    ...(opts.sourceMeta?.directedScene
+      ? { directedScene: opts.sourceMeta.directedScene }
+      : {}),
+    ...(opts.sourceMeta?.directedCast
+      ? { directedCast: opts.sourceMeta.directedCast }
       : {}),
   };
 
@@ -174,6 +189,8 @@ export async function generateMural(opts?: {
   focus?: string;
   kind?: MuralKind;
   day?: number;
+  /** Directed scene/cast; empty/omitted keeps Auto brief identical to main. */
+  direction?: MuralDirection;
 }): Promise<GenerateMuralResult> {
   const history = await loadHistory();
   const attempts: GenerateAttemptFailure[] = [];
@@ -199,6 +216,8 @@ export async function generateMural(opts?: {
       ? opts.focus.trim()
       : undefined;
 
+  const direction = normalizeDirection(opts?.direction);
+
   const explicitDay =
     typeof opts?.day === "number" &&
     Number.isInteger(opts.day) &&
@@ -220,7 +239,24 @@ export async function generateMural(opts?: {
     : getSeasonRecord(opts?.seasonId ?? history.lastSeasonId);
 
   let normieCast: NormieCastMember[] | undefined;
-  if (source) {
+  const directedCastText = direction?.cast;
+  if (directedCastText) {
+    console.info(`[murals] generate stage=lookup directed starting`);
+    try {
+      normieCast = await buildDirectedNormieCast(directedCastText);
+      const matched = normieCast.filter((m) => m.status === "matched").length;
+      console.info(
+        `[murals] generate stage=lookup directed done names=${normieCast.length} matched=${matched}`
+      );
+    } catch (error) {
+      console.warn(
+        `[murals] generate stage=lookup directed failed (continuing without cast): ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      normieCast = [];
+    }
+  } else if (source) {
     console.info(`[murals] generate stage=lookup starting`);
     try {
       normieCast = await buildNormieCast(source);
@@ -238,13 +274,16 @@ export async function generateMural(opts?: {
     }
   }
 
-  const sourceMeta = source
-    ? {
-        source,
-        ...(focus ? { focus } : {}),
-        ...(normieCast ? { normieCast } : {}),
-      }
-    : undefined;
+  const sourceMeta =
+    source || direction || normieCast
+      ? {
+          ...(source ? { source } : {}),
+          ...(focus ? { focus } : {}),
+          ...(normieCast ? { normieCast } : {}),
+          ...(direction?.scene ? { directedScene: direction.scene } : {}),
+          ...(direction?.cast ? { directedCast: direction.cast } : {}),
+        }
+      : undefined;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const engine = Math.random() < 0.5 ? "v2" : "v3";
@@ -256,6 +295,7 @@ export async function generateMural(opts?: {
       usedFigures: history.usedFigures,
       usedBeats: history.usedBeats,
       ...(normieCast ? { normieCast } : {}),
+      ...(direction ? { direction } : {}),
     };
 
     const result =

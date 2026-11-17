@@ -8,6 +8,8 @@ export const maxDuration = 300;
 
 const SOURCE_MAX = 12000;
 const FOCUS_MAX = 200;
+const SCENE_MAX = 1000;
+const CAST_MAX = 4000;
 
 export async function POST(request: Request) {
   const denied = await requireMuralsAdmin(request);
@@ -76,6 +78,42 @@ export async function POST(request: Request) {
       if (trimmedFocus) focus = trimmedFocus;
     }
 
+    let directedScene: string | undefined;
+    if (typeof body?.scene === "string") {
+      const trimmedScene = body.scene.trim();
+      if (trimmedScene.length > SCENE_MAX) {
+        return NextResponse.json(
+          {
+            error: `Scene is too long (${trimmedScene.length} characters). Maximum is ${SCENE_MAX}.`,
+          },
+          { status: 400 }
+        );
+      }
+      if (trimmedScene) directedScene = trimmedScene;
+    }
+
+    let directedCast: string | undefined;
+    if (typeof body?.cast === "string") {
+      const trimmedCast = body.cast.trim();
+      if (trimmedCast.length > CAST_MAX) {
+        return NextResponse.json(
+          {
+            error: `Cast is too long (${trimmedCast.length} characters). Maximum is ${CAST_MAX}.`,
+          },
+          { status: 400 }
+        );
+      }
+      if (trimmedCast) directedCast = trimmedCast;
+    }
+
+    const direction =
+      directedScene || directedCast
+        ? {
+            ...(directedScene ? { scene: directedScene } : {}),
+            ...(directedCast ? { cast: directedCast } : {}),
+          }
+        : undefined;
+
     const result = await generateMural({
       kind,
       ...(seasonId ? { seasonId } : {}),
@@ -85,6 +123,7 @@ export async function POST(request: Request) {
       ...(kind === "moment" && day !== undefined ? { day } : {}),
       ...(source ? { source } : {}),
       ...(focus ? { focus } : {}),
+      ...(direction ? { direction } : {}),
     });
     if (!result.ok) {
       return NextResponse.json(
