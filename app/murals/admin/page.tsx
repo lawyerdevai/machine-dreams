@@ -115,6 +115,13 @@ export default function MuralsAdminPage() {
   const [sourceText, setSourceText] = useState("");
   const [sourceFocus, setSourceFocus] = useState("");
   const [testingOpen, setTestingOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importKind, setImportKind] = useState<MuralKind>("moment");
+  const [importDay, setImportDay] = useState("");
+  const [importTitle, setImportTitle] = useState("");
+  const [importCaption, setImportCaption] = useState("");
+  const [importDetails, setImportDetails] = useState("");
+  const [importing, setImporting] = useState(false);
   const stopBatchRef = useRef(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -528,7 +535,67 @@ export default function MuralsAdminPage() {
     }
   }
 
-  const generateBusy = generating || batchRunning;
+  async function importMural() {
+    setNotice(null);
+    setFailedAttempts([]);
+    let details: unknown;
+    const detailsTrim = importDetails.trim();
+    if (detailsTrim) {
+      try {
+        details = JSON.parse(detailsTrim) as unknown;
+      } catch {
+        setNotice("Import details must be valid JSON.");
+        return;
+      }
+      if (
+        details === null ||
+        typeof details !== "object" ||
+        Array.isArray(details)
+      ) {
+        setNotice("Import details must be a JSON object.");
+        return;
+      }
+    }
+
+    setImporting(true);
+    try {
+      const dayNum = Number(importDay.trim());
+      const res = await fetch("/api/murals/admin/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers() },
+        body: JSON.stringify({
+          imageUrl: importUrl.trim(),
+          type: importKind,
+          ...(importDay.trim() && Number.isInteger(dayNum) && dayNum > 0
+            ? { day: dayNum }
+            : {}),
+          title: importTitle.trim(),
+          caption: importCaption.trim(),
+          ...(details ? { details } : {}),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        id?: string;
+        error?: string;
+      } | null;
+      if (!res.ok || !data?.ok || !data.id) {
+        setNotice(data?.error || "Import failed.");
+        return;
+      }
+      setNotice(`Imported ${data.id} as pending.`);
+      setImportUrl("");
+      setImportDay("");
+      setImportTitle("");
+      setImportCaption("");
+      setImportDetails("");
+      await refresh();
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const generateBusy = generating || batchRunning || importing;
 
   if (!keyReady && !isDevEnv()) {
     return (
@@ -734,6 +801,111 @@ export default function MuralsAdminPage() {
               Approve automatically (testing only)
             </label>
           ) : null}
+
+          <div className="mt-2 w-full max-w-xl border-t border-[#0a0a0a] pt-4">
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+              Import
+            </p>
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                  Image URL (Vercel Blob)
+                </span>
+                <input
+                  type="url"
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  disabled={generateBusy}
+                  className="border border-[#0a0a0a] bg-white px-3 py-2 font-mono text-sm text-[#0a0a0a]"
+                  placeholder="https://….public.blob.vercel-storage.com/…"
+                />
+              </label>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                    Type
+                  </span>
+                  <select
+                    value={importKind}
+                    onChange={(e) =>
+                      setImportKind(
+                        e.target.value === "season" ? "season" : "moment"
+                      )
+                    }
+                    disabled={generateBusy}
+                    className="border border-[#0a0a0a] bg-white px-3 py-2 font-mono text-sm"
+                  >
+                    <option value="moment">moment</option>
+                    <option value="season">season</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                    {importKind === "season" ? "Season #" : "Day"}
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={importDay}
+                    onChange={(e) => setImportDay(e.target.value)}
+                    disabled={generateBusy}
+                    className="w-24 border border-[#0a0a0a] bg-white px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1">
+                <span className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                  Title
+                </span>
+                <input
+                  type="text"
+                  value={importTitle}
+                  onChange={(e) => setImportTitle(e.target.value)}
+                  disabled={generateBusy}
+                  className="border border-[#0a0a0a] bg-white px-3 py-2 font-serif text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                  Caption
+                </span>
+                <textarea
+                  value={importCaption}
+                  onChange={(e) => setImportCaption(e.target.value)}
+                  disabled={generateBusy}
+                  rows={3}
+                  className="border border-[#0a0a0a] bg-white px-3 py-2 font-serif text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                  Details JSON (optional)
+                </span>
+                <textarea
+                  value={importDetails}
+                  onChange={(e) => setImportDetails(e.target.value)}
+                  disabled={generateBusy}
+                  rows={4}
+                  className="border border-[#0a0a0a] bg-white px-3 py-2 font-mono text-[0.6875rem]"
+                  placeholder='{ "style": "…", "normieCast": [] }'
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void importMural()}
+                disabled={
+                  generateBusy ||
+                  loading ||
+                  !importUrl.trim() ||
+                  !importTitle.trim() ||
+                  !importCaption.trim()
+                }
+                className="btn-minimal disabled:opacity-40"
+              >
+                {importing ? "Importing…" : "Import"}
+              </button>
+            </div>
+          </div>
         </div>
       </details>
 
