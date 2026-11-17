@@ -16,8 +16,14 @@ export type NormieCastMember = {
   name: string;
   tokenId?: number;
   type?: string;
+  /** Full API traits (Details JSON). Brief may use directedDescription instead. */
   traits?: Record<string, string>;
   status: NormieCastStatus;
+  /**
+   * Directed-mode admin description for this cast line. When set, the brief
+   * uses this instead of API traits; full traits stay on the record.
+   */
+  directedDescription?: string;
 };
 
 /** Full generator output stored under the mural record. */
@@ -52,6 +58,10 @@ export type MuralGeneratorRecord = {
    * Named normieCast to avoid clashing with cast (scene cast-size string).
    */
   normieCast?: NormieCastMember[];
+  /** Directed-mode required scene/event (admin / internal only). */
+  directedScene?: string;
+  /** Directed-mode cast text, one Name: description per line (admin / internal). */
+  directedCast?: string;
 };
 
 export type MuralItem = {

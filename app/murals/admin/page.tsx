@@ -109,11 +109,16 @@ export default function MuralsAdminPage() {
   const [rowConfirm, setRowConfirm] = useState<Record<string, string>>({});
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
+  const [generateMode, setGenerateMode] = useState<"auto" | "directed">(
+    "auto"
+  );
   const [sourceKind, setSourceKind] = useState<MuralKind>("moment");
   const [sourceSeason, setSourceSeason] = useState("");
   const [sourceDay, setSourceDay] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [sourceFocus, setSourceFocus] = useState("");
+  const [directedScene, setDirectedScene] = useState("");
+  const [directedCast, setDirectedCast] = useState("");
   const [testingOpen, setTestingOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
   const [importKind, setImportKind] = useState<MuralKind>("moment");
@@ -228,6 +233,8 @@ export default function MuralsAdminPage() {
     day?: number;
     source?: string;
     focus?: string;
+    scene?: string;
+    cast?: string;
   }): Promise<{
     ok: boolean;
     item?: MuralItem;
@@ -311,8 +318,16 @@ export default function MuralsAdminPage() {
   async function generateFromSource() {
     if (generating || batchRunning) return;
     const source = sourceText.trim();
-    if (!source) {
+    const scene = directedScene.trim();
+    const cast = directedCast.trim();
+    const directed = generateMode === "directed";
+    if (!directed && !source) {
       setNotice("Paste source text first.");
+      setFailedAttempts([]);
+      return;
+    }
+    if (directed && !source && !scene && !cast) {
+      setNotice("Add a Scene, Cast, or Source for Directed mode.");
       setFailedAttempts([]);
       return;
     }
@@ -350,8 +365,10 @@ export default function MuralsAdminPage() {
         kind: sourceKind,
         ...(seasonNumber !== undefined ? { seasonNumber } : {}),
         ...(day !== undefined ? { day } : {}),
-        source,
+        ...(source ? { source } : {}),
         ...(focus ? { focus } : {}),
+        ...(directed && scene ? { scene } : {}),
+        ...(directed && cast ? { cast } : {}),
       });
       if (!result.ok || !result.item) {
         setNotice(result.error ?? "Generate failed.");
@@ -657,6 +674,31 @@ export default function MuralsAdminPage() {
         <h2 className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
           New mural
         </h2>
+        <fieldset className="flex flex-wrap gap-4 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          <legend className="sr-only">Generate mode</legend>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="generate-mode"
+              value="auto"
+              checked={generateMode === "auto"}
+              disabled={generateBusy}
+              onChange={() => setGenerateMode("auto")}
+            />
+            Auto
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="generate-mode"
+              value="directed"
+              checked={generateMode === "directed"}
+              disabled={generateBusy}
+              onChange={() => setGenerateMode("directed")}
+            />
+            Directed
+          </label>
+        </fieldset>
         <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
           Type
           <select
@@ -688,7 +730,7 @@ export default function MuralsAdminPage() {
         ) : null}
         {sourceKind === "moment" ? (
           <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-            Day
+            Day{generateMode === "directed" ? " (optional)" : ""}
             <input
               type="number"
               min={1}
@@ -702,8 +744,36 @@ export default function MuralsAdminPage() {
             />
           </label>
         ) : null}
+        {generateMode === "directed" ? (
+          <>
+            <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+              Scene
+              <input
+                type="text"
+                value={directedScene}
+                disabled={generateBusy}
+                maxLength={1000}
+                placeholder="The event that must happen in the picture"
+                onChange={(e) => setDirectedScene(e.target.value)}
+                className="border border-[#0a0a0a] bg-transparent px-2 py-1 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+              />
+            </label>
+            <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+              Cast
+              <textarea
+                value={directedCast}
+                rows={4}
+                disabled={generateBusy}
+                maxLength={4000}
+                placeholder={"One line per character:\nName: description"}
+                onChange={(e) => setDirectedCast(e.target.value)}
+                className="border border-[#0a0a0a] bg-transparent px-2 py-2 font-serif text-base normal-case tracking-normal text-[#0a0a0a] disabled:opacity-40"
+              />
+            </label>
+          </>
+        ) : null}
         <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
-          Source
+          Source{generateMode === "directed" ? " (optional)" : ""}
           <textarea
             value={sourceText}
             rows={10}
@@ -729,12 +799,22 @@ export default function MuralsAdminPage() {
           <button
             type="button"
             onClick={() => void generateFromSource()}
-            disabled={generateBusy || loading || !sourceText.trim()}
+            disabled={
+              generateBusy ||
+              loading ||
+              (generateMode === "auto"
+                ? !sourceText.trim()
+                : !sourceText.trim() &&
+                  !directedScene.trim() &&
+                  !directedCast.trim())
+            }
             className="btn-minimal disabled:opacity-40"
           >
             {generating && !batchRunning
               ? "Generating..."
-              : "Generate from source"}
+              : generateMode === "directed"
+                ? "Generate directed"
+                : "Generate from source"}
           </button>
         </div>
         {notice ? (
@@ -1166,8 +1246,27 @@ export default function MuralsAdminPage() {
 
               {openDetails[item.id] ? (
                 <div className="space-y-3">
-                  {isTextPathRecord(item) ? (
+                  {item.record.directedScene || item.record.directedCast ? (
                     <div className="border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
+                      <p className="mb-2 uppercase tracking-[0.08em] text-[#666]">
+                        Directed
+                      </p>
+                      {item.record.directedScene ? (
+                        <p>
+                          <span className="text-[#666]">Scene: </span>
+                          {item.record.directedScene}
+                        </p>
+                      ) : null}
+                      {item.record.directedCast ? (
+                        <pre className="mt-2 whitespace-pre-wrap">
+                          <span className="text-[#666]">Cast:{"\n"}</span>
+                          {item.record.directedCast}
+                        </pre>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {isTextPathRecord(item) ? (
+                    <div className="border border-[#0a0a0] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
                       <p className="mb-2 uppercase tracking-[0.08em] text-[#666]">
                         Cast lookup
                       </p>

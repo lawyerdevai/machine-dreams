@@ -1,9 +1,25 @@
 import "server-only";
 
 import { anthropic, parseClaudeJson } from "@/lib/ai";
+import {
+  formatNormieCastForBrief,
+  hasMatchedNormieCast,
+  textPathCastBriefRules,
+  traitsForBrief,
+} from "./brief-cast";
+import {
+  parseDirectedCastLines,
+  typeFromDirectedDescription,
+} from "./direction";
 import type { NormieCastMember } from "./types";
 
 export type { NormieCastMember, NormieCastStatus } from "./types";
+export {
+  formatNormieCastForBrief,
+  hasMatchedNormieCast,
+  textPathCastBriefRules,
+  traitsForBrief,
+};
 
 const NAME_RE = /^[A-Za-z][A-Za-z'\- ]{1,24}$/;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -266,58 +282,11 @@ function traitsFromIdentity(
 }
 
 /**
- * Normies API trait keys (from /agents/identity): Type, Gender, Age, Hair Style,
- * Facial Feature, Eyes, Expression, Accessory. For the image brief we keep only
- * easy-to-portray, non-color cues. Full traits stay on generator.normieCast.
+ * Look up cast members by name. Lookup failures are non-fatal per name.
  */
-const FACIAL_HAIR_RE =
-  /\b(beard|shaven|goatee|mustache|moustache|chin\s*strap|handlebars|muttonchops|stubble|whisker)\b/i;
-const HEADWEAR_RE =
-  /\b(hat|cap|bandana|fedora|beanie|beret|hood|hoodie|do-?rag|helmet|crown|turban|headband)\b/i;
-
-/** Traits allowed into the Claude brief / imagePrompt path. */
-export function traitsForBrief(
-  traits: Record<string, string> | undefined
-): Record<string, string> | undefined {
-  if (!traits) return undefined;
-  const out: Record<string, string> = {};
-  if (traits["Eyes"]?.trim()) out["Eyes"] = traits["Eyes"].trim();
-  if (traits["Hair Style"]?.trim()) out["Hair Style"] = traits["Hair Style"].trim();
-  const facial = traits["Facial Feature"]?.trim();
-  if (facial && FACIAL_HAIR_RE.test(facial)) {
-    out["Facial Feature"] = facial;
-  }
-  const accessory = traits["Accessory"]?.trim();
-  if (accessory && HEADWEAR_RE.test(accessory)) {
-    out.Accessory = accessory;
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-export function hasMatchedNormieCast(
-  cast: NormieCastMember[] | undefined
-): boolean {
-  return Boolean(cast?.some((member) => member.status === "matched"));
-}
-
-/**
- * Build cast for the text path. Lookup failures are non-fatal.
- */
-export async function buildNormieCast(
-  source: string
+export async function buildNormieCastFromNames(
+  names: string[]
 ): Promise<NormieCastMember[]> {
-  let names: string[] = [];
-  try {
-    names = await extractNormieNames(source);
-  } catch (error) {
-    console.warn(
-      `[murals] lookup extractNormieNames failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-    return [];
-  }
-
   if (names.length === 0) return [];
 
   return mapPool(names, CONCURRENCY, async (name) => {
@@ -362,36 +331,57 @@ export async function buildNormieCast(
   });
 }
 
-/** Format matched cast for the brief CAST section (allowlisted traits only). */
-export function formatNormieCastForBrief(
-  cast: NormieCastMember[]
-): string {
-  const matched = cast.filter((member) => member.status === "matched");
-  if (matched.length === 0) return "(none matched)";
-  return matched
-    .map((member) => {
-      const briefTraits = traitsForBrief(member.traits);
-      const traitParts = briefTraits
-        ? Object.entries(briefTraits)
-            .map(([key, value]) => `${key}=${value}`)
-            .join("; ")
-        : "(no brief traits)";
-      return `- ${member.name}: type=${member.type ?? "unknown"}; traits: ${traitParts}`;
-    })
-    .join("\n");
+/**
+ * Build cast for the text path. Lookup failures are non-fatal.
+ */
+export async function buildNormieCast(
+  source: string
+): Promise<NormieCastMember[]> {
+  let names: string[] = [];
+  try {
+    names = await extractNormieNames(source);
+  } catch (error) {
+    console.warn(
+      `[murals] lookup extractNormieNames failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return [];
+  }
+
+  return buildNormieCastFromNames(names);
 }
 
 /**
- * Extra brief rules for the text path when a Normie cast was looked up.
- * Only matched members are listed in CAST; unmatched names keep kit-only behavior.
+ * Directed cast: look up each Name: description line. Matched Normies keep full
+ * API traits on the record; the brief uses directedDescription instead. Type
+ * comes from the description when stated, otherwise from the API.
  */
-export function textPathCastBriefRules(cast: NormieCastMember[]): string {
-  return `- CAST (matched Normies looked up from the source):
-${formatNormieCastForBrief(cast)}
-- Named cast Normies are specific individuals in the picture. Map each Normie's type (Human, Cat, Alien, Agent, Zombie) to the matching faction kit for form, scale, and origin scaffolding only; then apply the brief traits (eyewear, hair, facial hair, headwear) in plain visual words wherever the style allows. Do not invent color from the pixel art. The banned faction words still must not appear in imagePrompt.
-- Prefer featuring cast Normies who are central to the chosen moment. Unnamed supporting figures (if any) use faction kits only and are not individuals.
-- Choose the number of figures that best serves the moment. Named cast Normies should be the central figures; do not pad the cast to match a random size.
-- Names in the cast may be used in the title and caption. Do not mention token numbers or the API anywhere in the title or caption.
-- Normies named in the text that are not in the cast keep the current behavior (kits choose their form).
-`;
+export async function buildDirectedNormieCast(
+  castText: string
+): Promise<NormieCastMember[]> {
+  const lines = parseDirectedCastLines(castText);
+  if (lines.length === 0) return [];
+
+  const looked = await buildNormieCastFromNames(lines.map((l) => l.name));
+  const byName = new Map(
+    looked.map((member) => [member.name.toLowerCase(), member])
+  );
+
+  return lines.map((line) => {
+    const member = byName.get(line.name.toLowerCase()) ?? {
+      name: line.name,
+      status: "not_found" as const,
+    };
+    const typeFromDesc = typeFromDirectedDescription(line.description);
+    const type = typeFromDesc ?? member.type;
+    return {
+      ...member,
+      name: line.name,
+      ...(type ? { type } : {}),
+      ...(line.description
+        ? { directedDescription: line.description }
+        : {}),
+    };
+  });
 }
