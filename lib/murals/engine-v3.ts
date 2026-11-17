@@ -14,7 +14,10 @@ import {
   type MixLevelV3,
   type StyleMixV3,
 } from "@/lib/arena-murals-styles-v3";
-import { textPathCastBriefRules } from "./normies";
+import {
+  hasMatchedNormieCast,
+  textPathCastBriefRules,
+} from "./normies";
 import { formatSeasonRecord, type SeasonRecord } from "./season";
 import type { NormieCastMember } from "./types";
 
@@ -66,14 +69,22 @@ function buildBrief(input: {
     ? `- The tone MUST be combat. The moment MUST be a clash between two sides drawn from this season's war or violence. Show the fight itself.`
     : `- Pick a moment whose tone is ${input.targetTone}. Combat, quiet, and other are equally welcome when asked for; follow the target tone.`;
 
+  const matchedCast = hasMatchedNormieCast(input.normieCast);
+  const castSizeRule = matchedCast
+    ? `- Figure count: choose the number of figures that best serves the moment. Put matched CAST Normies at the center. Do not force a random cast size.`
+    : `- Use the CAST SIZE dealt exactly. Only change it if the season record makes it impossible. A group or crowd means every figure is a distinct individual, each drawn with a different silhouette, scale, and coloring from the faction kits.`;
+  const quietCastRule = matchedCast
+    ? `- The target tone is ${input.targetTone}. Ignore the SCENE KIT violence level for this run; choose a quiet or other moment that fits the season. Choose the number of figures that best serves the moment, with matched CAST Normies central. Composition (not camera) shapes the framing.`
+    : `- The target tone is ${input.targetTone}. Ignore the SCENE KIT violence level for this run; choose a quiet or other moment that fits the season. SCENE KIT cast may still shape the picture: cast ${input.sceneKit.castSize}. Composition (not camera) shapes the framing.`;
+
   const combatRules =
     input.targetTone === "combat" || input.forceCombat
       ? `- When the moment is combat, show the clash itself: at least two figures in physical conflict, caught mid-action (a swing, a grapple, a charge, a block, a leap), at the instant of impact or just before unless the violence level says otherwise. Not a lone figure posing, not a victory stance, not the aftermath unless the violence level is aftermath, not a lone hero on wreckage. Keep it TV-14: stylized, no blood, no wounds, no gore, no dead bodies shown, no sexual content, no hate symbols.
-- Use the CAST SIZE dealt exactly. Only change it if the season record makes it impossible. A group or crowd means every figure is a distinct individual, each drawn with a different silhouette, scale, and coloring from the faction kits. Do not default to two figures grappling face to face. Vary the pose, direction, and distance of the conflict. The violence level applies only if the moment is combat. Keep it TV-14: no blood, no wounds, no gore, no dead bodies shown. Show impact through motion, flying debris, twisted poses, and the style itself. The blow should land, not just be threatened, unless the level says otherwise.
+${castSizeRule} Do not default to two figures grappling face to face. Vary the pose, direction, and distance of the conflict. The violence level applies only if the moment is combat. Keep it TV-14: no blood, no wounds, no gore, no dead bodies shown. Show impact through motion, flying debris, twisted poses, and the style itself. The blow should land, not just be threatened, unless the level says otherwise.
 - At the brawl and all-out clash levels, the blow has already connected: a body recoiling or airborne, a weapon caught mid-impact, a shove already moving someone off their feet. Show the force through the pose and the style, not through blood or wounds. At the standoff and about-to-happen levels, hold the instant before.
 - SCENE KIT: ${sceneLabel}
 - Do not reuse these conflict beats: ${usedBeats}.`
-      : `- The target tone is ${input.targetTone}. Ignore the SCENE KIT violence level for this run; choose a quiet or other moment that fits the season. SCENE KIT cast may still shape the picture: cast ${input.sceneKit.castSize}. Composition (not camera) shapes the framing.`;
+      : quietCastRule;
 
   const styleMarksRule = input.styleMarks
     ? `- STYLE MARKS: ${input.styleMarks}. Name these in the imagePrompt right after the medium, before any figure detail.`
@@ -81,7 +92,7 @@ function buildBrief(input: {
 
   const fromSource = Boolean(input.season.sourceText?.trim());
   const castRules =
-    fromSource && input.normieCast
+    fromSource && matchedCast && input.normieCast
       ? textPathCastBriefRules(input.normieCast)
       : "";
   const textPathRules = fromSource
@@ -95,6 +106,14 @@ function buildBrief(input: {
 ${castRules}`
     : "";
 
+  const individualityRule = matchedCast
+    ? `- Matched CAST Normies are specific individuals: depict them with their type and brief traits. Unnamed figures (if any) are faction types only, not individuals; the named character still belongs in the moment line and the statement when relevant.`
+    : `- Show characters as their faction type (Human, Cat, Alien, Agent, Zombie), not as specific individuals; the named character belongs in the moment line and the statement.`;
+
+  const factionKitsRule = matchedCast
+    ? `- FACTION KITS: For unnamed figures, use kit A for the first figure of each faction and kit B for the second; if there are more, vary them from A and B. For matched CAST Normies, use the kit that matches their type only for form, scale, and origin scaffolding, then apply their brief traits. When a kit includes an origin, let the origin shape body materials without erasing the Normie's traits. When WILDCARD is present, it overrides the rolled form for unnamed figures only.`
+    : `- FACTION KITS: Use kit A for the first figure of each faction and kit B for the second; if there are more, vary them from A and B. Each kit sets that faction's scale, form, color, and features. Follow them, adapting only where the moment demands. When a kit includes an origin, let the origin shape the body, skin, eyes, build, materials, and clothing. When WILDCARD is present, it overrides the rolled form.`;
+
   return `You are making one artwork that records a season of a world called the Arena, where AI-agent Normies of five factions (Human, Cat, Alien, Agent, Zombie) live, fight, trade, vote, and die. Below is the record of the season.
 
 Rules:
@@ -102,12 +121,12 @@ Rules:
 ${textPathRules}- Neither the title nor the caption may name or number the season or round (for example "Season 12" or "Round 3"). The page label shows the season; leave it out of title and caption.
 ${toneRule}
 ${combatRules}
-- Show characters as their faction type (Human, Cat, Alien, Agent, Zombie), not as specific individuals; the named character belongs in the moment line and the statement.
+${individualityRule}
 - When two factions meet, make each faction visible in its silhouette (an alien's head shape, a cat's ears and tail, an agent's machine parts, a zombie's decay), so the two sides can be told apart. Describe each figure's visible faction cues first, without the banned words.
 - Every figure must look specific. Figures of different factions in the same image must differ clearly in scale and silhouette, not just in color. Never draw the generic default of any faction. Humans are always clearly adult, aged 18 to 80: adult proportions, adult faces, adult builds. Never draw a human, or any humanlike figure, as a child or teenager, or with a youthful cartoon face, in any style, including manga, comics, and picture-book illustration. Draw humans to the age range in their kit.
 - In the imagePrompt, never use the words alien, extraterrestrial, zombie, undead, robot, android, or cyborg. Image models turn those words into one generic stock look. Describe the body directly: skin, limbs, eyes, silhouette, materials, and clothing.
 - A figure's origin or habitat shapes only that figure's body, skin, eyes, build, and clothing. It never changes the setting. The setting, background, and light come only from the season moment. Do not draw the home world, habitat, or scenery of any figure's origin.
-- FACTION KITS: Use kit A for the first figure of each faction and kit B for the second; if there are more, vary them from A and B. Each kit sets that faction's scale, form, color, and features. Follow them, adapting only where the moment demands. When a kit includes an origin, let the origin shape the body, skin, eyes, build, materials, and clothing. When WILDCARD is present, it overrides the rolled form.
+${factionKitsRule}
 ${input.factionKits.label}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together. If two hybrid styles don't combine naturally, let the stronger one dominate.

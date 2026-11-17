@@ -77,6 +77,20 @@ function castDetails(cast: NormieCastMember[] | undefined) {
   return { list, unmatched };
 }
 
+/** Compact one-line cast summary for the row chrome. */
+function castStatusLine(cast: NormieCastMember[] | undefined): string | null {
+  const list = cast ?? [];
+  if (list.length === 0) return null;
+  return list
+    .map((m) => {
+      const bits = [m.name, m.status];
+      if (m.tokenId != null) bits.push(`#${m.tokenId}`);
+      if (m.type) bits.push(m.type);
+      return bits.join(" ");
+    })
+    .join(" · ");
+}
+
 export default function MuralsAdminPage() {
   const [adminKey, setAdminKey] = useState("");
   const [keyReady, setKeyReady] = useState(false);
@@ -965,6 +979,13 @@ export default function MuralsAdminPage() {
                   </span>
                 ) : null}
               </div>
+              {isTextPathRecord(item) ? (
+                <p className="font-mono text-[0.6875rem] leading-relaxed text-[#666]">
+                  Cast:{" "}
+                  {castStatusLine(item.record.normieCast) ??
+                    "no names looked up"}
+                </p>
+              ) : null}
               {rowError[item.id] ? (
                 <p className="font-mono text-[0.6875rem] text-[#0a0a0a]">
                   {rowError[item.id]}
@@ -976,7 +997,7 @@ export default function MuralsAdminPage() {
                   {isTextPathRecord(item) ? (
                     <div className="border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
                       <p className="mb-2 uppercase tracking-[0.08em] text-[#666]">
-                        Cast
+                        Cast lookup
                       </p>
                       {(() => {
                         const { list, unmatched } = castDetails(
@@ -992,12 +1013,14 @@ export default function MuralsAdminPage() {
                             <ul className="space-y-1">
                               {list.map((member) => (
                                 <li key={`${member.name}-${member.status}`}>
-                                  {member.name}
+                                  <span className="text-[#0a0a0a]">
+                                    {member.name}
+                                  </span>
+                                  {` · ${member.status}`}
                                   {member.tokenId != null
-                                    ? ` · token ${member.tokenId}`
+                                    ? ` · #${member.tokenId}`
                                     : ""}
                                   {member.type ? ` · ${member.type}` : ""}
-                                  {` · ${member.status}`}
                                 </li>
                               ))}
                             </ul>
