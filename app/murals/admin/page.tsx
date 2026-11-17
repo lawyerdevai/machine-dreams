@@ -138,6 +138,9 @@ export default function MuralsAdminPage() {
   const [generateMode, setGenerateMode] = useState<"auto" | "directed">(
     "auto"
   );
+  const [engineChoice, setEngineChoice] = useState<"random" | "v2" | "v3">(
+    "random"
+  );
   const [sourceKind, setSourceKind] = useState<MuralKind>("moment");
   const [sourceSeason, setSourceSeason] = useState("");
   const [sourceDay, setSourceDay] = useState("");
@@ -265,6 +268,7 @@ export default function MuralsAdminPage() {
     focus?: string;
     scene?: string;
     cast?: string;
+    engine?: "random" | "v2" | "v3";
   }): Promise<{
     ok: boolean;
     item?: MuralItem;
@@ -327,7 +331,10 @@ export default function MuralsAdminPage() {
     setFailedAttempts([]);
     setBatchErrors([]);
     try {
-      const result = await requestGenerate({ kind: "moment" });
+      const result = await requestGenerate({
+        kind: "moment",
+        ...(engineChoice === "random" ? {} : { engine: engineChoice }),
+      });
       if (!result.ok || !result.item) {
         setNotice(result.error ?? "Generate failed.");
         setFailedAttempts(result.attempts ?? []);
@@ -454,6 +461,7 @@ export default function MuralsAdminPage() {
         ...(focus ? { focus } : {}),
         ...(directed && scene ? { scene } : {}),
         ...(directed && cast ? { cast } : {}),
+        ...(engineChoice === "random" ? {} : { engine: engineChoice }),
       });
       if (!result.ok || !result.item) {
         setNotice(result.error ?? "Generate failed.");
@@ -493,7 +501,10 @@ export default function MuralsAdminPage() {
         if (stopBatchRef.current) break;
         setNotice(`Generating ${i} of ${count}...`);
         try {
-          const result = await requestGenerate({ kind: "moment" });
+          const result = await requestGenerate({
+            kind: "moment",
+            ...(engineChoice === "random" ? {} : { engine: engineChoice }),
+          });
           if (!result.ok || !result.item) {
             failed += 1;
             const detail =
@@ -796,6 +807,24 @@ export default function MuralsAdminPage() {
           >
             <option value="moment">Moment</option>
             <option value="season">Season</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          Engine
+          <select
+            value={engineChoice}
+            disabled={generateBusy}
+            onChange={(e) => {
+              const v = e.target.value;
+              setEngineChoice(
+                v === "v2" || v === "v3" ? v : "random"
+              );
+            }}
+            className="w-40 border border-[#0a0a0a] bg-transparent px-2 py-1 font-mono text-sm text-[#0a0a0a] disabled:opacity-40"
+          >
+            <option value="random">Random</option>
+            <option value="v2">v2</option>
+            <option value="v3">v3</option>
           </select>
         </label>
         {sourceKind === "season" ? (
@@ -1441,6 +1470,9 @@ export default function MuralsAdminPage() {
 
               {openDetails[item.id] ? (
                 <div className="space-y-3">
+                  <p className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
+                    Engine: {item.record.engine}
+                  </p>
                   {item.record.directedScene || item.record.directedCast ? (
                     <div className="border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
                       <p className="mb-2 uppercase tracking-[0.08em] text-[#666]">

@@ -191,6 +191,8 @@ export async function generateMural(opts?: {
   day?: number;
   /** Directed scene/cast; empty/omitted keeps Auto brief identical to main. */
   direction?: MuralDirection;
+  /** Force v2 or v3; omit for the default 50/50 coin flip. */
+  engine?: "v2" | "v3";
 }): Promise<GenerateMuralResult> {
   const history = await loadHistory();
   const attempts: GenerateAttemptFailure[] = [];
@@ -286,7 +288,12 @@ export async function generateMural(opts?: {
       : undefined;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const engine = Math.random() < 0.5 ? "v2" : "v3";
+    const engine =
+      opts?.engine === "v2" || opts?.engine === "v3"
+        ? opts.engine
+        : Math.random() < 0.5
+          ? "v2"
+          : "v3";
     const shared = {
       lastSeasonId: history.lastSeasonId,
       season,
