@@ -8,6 +8,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { sortSeasonMurals, type PublicMural } from "./public-types";
@@ -67,6 +69,8 @@ function hasFinePointer(): boolean {
     return false;
   }
 }
+
+const HOVER_PLAY_DELAY_MS = 120;
 
 function seasonShort(seasonNumber?: number): string {
   if (typeof seasonNumber !== "number" || !Number.isFinite(seasonNumber)) {
@@ -172,22 +176,167 @@ function StageWork({ item }: { item: PublicMural }) {
 
 function GridTile({
   item,
-  playing,
-  onToggleLoop,
+  pinned,
+  hoverPlaying,
+  onTogglePin,
+  onHoverPlayClaim,
+  onHoverPlayRelease,
   onPlaybackError,
 }: {
   item: PublicMural;
-  playing: boolean;
-  onToggleLoop: () => void;
+  /** LOOP button pin — keeps playing after pointer leaves. */
+  pinned: boolean;
+  /** This tile currently owns the single hover-play slot. */
+  hoverPlaying: boolean;
+  onTogglePin: () => void;
+  onHoverPlayClaim: () => void;
+  onHoverPlayRelease: () => void;
   onPlaybackError: () => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const [hoverCapable, setHoverCapable] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [pointerInside, setPointerInside] = useState(false);
+  const [focusInside, setFocusInside] = useState(false);
+  const [hoverArmed, setHoverArmed] = useState(false);
+  const [hoverSuppressed, setHoverSuppressed] = useState(false);
+  const delayRef = useRef<number | null>(null);
   const motion = item.motion;
   const canPlay = Boolean(motion?.url) && !failed;
 
   useEffect(() => {
     setFailed(false);
   }, [motion?.url]);
+
+  useEffect(() => {
+    let hoverMq: MediaQueryList;
+    let reduceMq: MediaQueryList;
+    try {
+      hoverMq = window.matchMedia("(hover: hover) and (pointer: fine)");
+      reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    } catch {
+      setHoverCapable(false);
+      setReduceMotion(false);
+      return;
+    }
+    const sync = () => {
+      setHoverCapable(hoverMq.matches && !reduceMq.matches);
+      setReduceMotion(reduceMq.matches);
+    };
+    sync();
+    hoverMq.addEventListener("change", sync);
+    reduceMq.addEventListener("change", sync);
+    return () => {
+      hoverMq.removeEventListener("change", sync);
+      reduceMq.removeEventListener("change", sync);
+    };
+  }, []);
+
+  const clearDelay = useCallback(() => {
+    if (delayRef.current != null) {
+      window.clearTimeout(delayRef.current);
+      delayRef.current = null;
+    }
+  }, []);
+
+  const armPreview = useCallback(() => {
+    if (!canPlay || pinned || hoverSuppressed) return;
+    clearDelay();
+    delayRef.current = window.setTimeout(() => {
+      delayRef.current = null;
+      setHoverArmed(true);
+      onHoverPlayClaim();
+    }, HOVER_PLAY_DELAY_MS);
+  }, [
+    canPlay,
+    pinned,
+    hoverSuppressed,
+    clearDelay,
+    onHoverPlayClaim,
+  ]);
+
+  const endPreview = useCallback(() => {
+    clearDelay();
+    setHoverArmed(false);
+    setHoverSuppressed(false);
+    onHoverPlayRelease();
+  }, [clearDelay, onHoverPlayRelease]);
+
+  useEffect(() => () => clearDelay(), [clearDelay]);
+
+  const previewActive =
+    !pinned &&
+    hoverArmed &&
+    hoverPlaying &&
+    !hoverSuppressed;
+  const effectivePlaying = pinned || previewActive;
+  const warm =
+    canPlay &&
+    !effectivePlaying &&
+    ((hoverCapable && pointerInside) ||
+      (!reduceMotion && focusInside));
+
+  const onPointerEnter = () => {
+    if (!hoverCapable || !canPlay) return;
+    setPointerInside(true);
+    if (!pinned && !hoverSuppressed) armPreview();
+  };
+
+  const onPointerLeave = () => {
+    if (!hoverCapable) return;
+    setPointerInside(false);
+    // Pinned keeps playing; only tear down hover preview.
+    if (!pinned) endPreview();
+    else {
+      clearDelay();
+      setHoverArmed(false);
+      setHoverSuppressed(false);
+    }
+  };
+
+  const onFocus = (e: ReactFocusEvent) => {
+    if (reduceMotion || !canPlay) return;
+    // Keyboard focus-visible only — ignore mouse click focus.
+    if (
+      e.target instanceof HTMLElement &&
+      !e.target.matches(":focus-visible")
+    ) {
+      return;
+    }
+    setFocusInside(true);
+    if (!pinned && !hoverSuppressed) armPreview();
+  };
+
+  const onBlur = (e: ReactFocusEvent) => {
+    const next = e.relatedTarget;
+    if (
+      next instanceof Node &&
+      e.currentTarget.contains(next)
+    ) {
+      return;
+    }
+    setFocusInside(false);
+    if (!pinned && !pointerInside) endPreview();
+  };
+
+  const onLoopClick = (e: ReactMouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (effectivePlaying) {
+      // Stop + unpin; suppress hover until leave/re-enter (or blur/refocus).
+      clearDelay();
+      setHoverArmed(false);
+      setHoverSuppressed(true);
+      onHoverPlayRelease();
+      if (pinned) onTogglePin();
+    } else {
+      setHoverSuppressed(false);
+      clearDelay();
+      setHoverArmed(false);
+      onHoverPlayRelease();
+      onTogglePin();
+    }
+  };
 
   return (
     <div className="murals-grid__item" role="listitem">
@@ -197,6 +346,10 @@ function GridTile({
           <Link
             href={`/murals/${item.id}`}
             className="murals-grid__media-link murals-hang__shadow w-full"
+            onPointerEnter={onPointerEnter}
+            onPointerLeave={onPointerLeave}
+            onFocus={onFocus}
+            onBlur={onBlur}
           >
             {canPlay ? (
               <MotionMedia
@@ -206,7 +359,8 @@ function GridTile({
                 sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 220px"
                 loading="lazy"
                 quality={60}
-                playing={playing}
+                playing={effectivePlaying}
+                warm={warm}
                 hasMotion={canPlay}
                 onVideoError={() => {
                   setFailed(true);
@@ -236,15 +390,13 @@ function GridTile({
             <button
               type="button"
               className="murals-label__loop murals-label__loop-btn"
-              aria-pressed={playing}
-              aria-label={playing ? "Stop animation" : "Play animation"}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onToggleLoop();
-              }}
+              aria-pressed={effectivePlaying}
+              aria-label={
+                effectivePlaying ? "Stop animation" : "Play animation"
+              }
+              onClick={onLoopClick}
             >
-              {playing ? "STOP" : "LOOP"}
+              {effectivePlaying ? "STOP" : "LOOP"}
             </button>
           ) : null}
         </div>
@@ -307,6 +459,8 @@ function KindGallery({
   const [view, setView] = useState<ViewMode>("timeline");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [gridPlayingId, setGridPlayingId] = useState<string | null>(null);
+  /** At most one grid tile hover-previews at a time (pins are separate). */
+  const [gridHoverId, setGridHoverId] = useState<string | null>(null);
   const [gridCount, setGridCount] = useState(GRID_PAGE);
   const [jumpValue, setJumpValue] = useState("");
   const [jumpError, setJumpError] = useState<string | null>(null);
@@ -427,6 +581,15 @@ function KindGallery({
 
   const stopGridLoop = useCallback(() => {
     setGridPlayingId(null);
+    setGridHoverId(null);
+  }, []);
+
+  const claimGridHover = useCallback((id: string) => {
+    setGridHoverId(id);
+  }, []);
+
+  const releaseGridHover = useCallback((id: string) => {
+    setGridHoverId((current) => (current === id ? null : current));
   }, []);
 
   const applyDockScales = useCallback((clientX: number | null) => {
@@ -795,8 +958,11 @@ function KindGallery({
               <GridTile
                 key={item.id}
                 item={item}
-                playing={gridPlayingId === item.id}
-                onToggleLoop={() => toggleGridLoop(item.id)}
+                pinned={gridPlayingId === item.id}
+                hoverPlaying={gridHoverId === item.id}
+                onTogglePin={() => toggleGridLoop(item.id)}
+                onHoverPlayClaim={() => claimGridHover(item.id)}
+                onHoverPlayRelease={() => releaseGridHover(item.id)}
                 onPlaybackError={stopGridLoop}
               />
             ))}

@@ -73,6 +73,11 @@ type MediaProps = {
   playing: boolean;
   hasMotion: boolean;
   onVideoError: () => void;
+  /**
+   * Mount and buffer the double-buffer pair without showing them (grid hover
+   * prefetch). Overlay still only appears after `playing` + first frame.
+   */
+  warm?: boolean;
 };
 
 type VideoFrameCb = (
@@ -103,6 +108,7 @@ export function MotionMedia({
   playing,
   hasMotion,
   onVideoError,
+  warm = false,
 }: MediaProps) {
   const videoARef = useRef<HTMLVideoElement | null>(null);
   const videoBRef = useRef<HTMLVideoElement | null>(null);
@@ -111,26 +117,77 @@ export function MotionMedia({
   const [videoMounted, setVideoMounted] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const shouldPlay = Boolean(playing && hasMotion && motion?.url);
+  const shouldWarm = Boolean(warm && !shouldPlay && hasMotion && motion?.url);
+  const shouldMount = shouldPlay || shouldWarm;
   // Sync mount/ready when play intent flips (avoid stale ready flash).
   const [playEpoch, setPlayEpoch] = useState(shouldPlay);
   if (shouldPlay !== playEpoch) {
     setPlayEpoch(shouldPlay);
     if (shouldPlay) {
-      setVideoReady(false);
+      // Keep ready if we already warmed a frame; otherwise wait for onPlaying.
+      if (!videoMounted) setVideoReady(false);
       setVideoMounted(true);
       setActiveIndex(0);
     } else {
       setVideoReady(false);
     }
   }
+  const [warmEpoch, setWarmEpoch] = useState(shouldWarm);
+  if (shouldWarm !== warmEpoch) {
+    setWarmEpoch(shouldWarm);
+    if (shouldWarm) setVideoMounted(true);
+  }
   const showOverlay = shouldPlay && videoReady;
 
-  // After stop fade-out, unmount the videos — still stays mounted.
+  // After stop fade-out (and no warm), unmount the videos — still stays mounted.
   useEffect(() => {
-    if (shouldPlay || !videoMounted) return;
+    if (shouldMount || !videoMounted) return;
     const t = window.setTimeout(() => setVideoMounted(false), VIDEO_FADE_MS);
     return () => window.clearTimeout(t);
-  }, [shouldPlay, videoMounted]);
+  }, [shouldMount, videoMounted]);
+
+  // Prefetch / warm decoder without showing the overlay.
+  useEffect(() => {
+    if (!shouldWarm || !videoMounted || !motion?.url) return;
+    const a = videoARef.current;
+    const b = videoBRef.current;
+    if (!a || !b) return;
+    let cancelled = false;
+    for (const el of [a, b]) {
+      el.muted = true;
+      try {
+        el.preload = "auto";
+        el.load();
+      } catch {
+        /* ignore */
+      }
+    }
+    const warmPlay = a.play();
+    if (warmPlay && typeof warmPlay.then === "function") {
+      void warmPlay
+        .then(() => {
+          if (cancelled) return;
+          a.pause();
+          try {
+            a.currentTime = 0;
+          } catch {
+            /* ignore */
+          }
+        })
+        .catch(() => {
+          /* warm-up is best-effort */
+        });
+    }
+    return () => {
+      cancelled = true;
+      try {
+        a.pause();
+        b.pause();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [shouldWarm, videoMounted, motion?.url]);
 
   // Play / gapless double-buffer loop. Native `loop` stalls a frame on restart.
   useEffect(() => {
