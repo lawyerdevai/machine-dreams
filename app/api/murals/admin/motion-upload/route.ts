@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { blobMotionPath, NS } from "@/lib/murals/ns";
+import { muralIdFromMotionPath } from "@/lib/murals/ns";
 import { getMuralItem } from "@/lib/murals/store";
 import { requireMuralsAdmin } from "../guard";
 
@@ -8,14 +8,10 @@ import { requireMuralsAdmin } from "../guard";
 const MAX_BYTES = 6 * 1024 * 1024;
 
 function parseMuralId(pathname: string, clientPayload: string | null): string | null {
-  const expectedPrefix = `${NS}/`;
-  const expectedSuffix = ".mp4";
-  if (!pathname.startsWith(expectedPrefix) || !pathname.endsWith(expectedSuffix)) {
-    return null;
-  }
-  const id = pathname.slice(expectedPrefix.length, -expectedSuffix.length);
-  if (!id || /[^a-zA-Z0-9_-]/.test(id)) return null;
-  if (pathname !== blobMotionPath(id)) return null;
+  const id = muralIdFromMotionPath(pathname);
+  if (!id) return null;
+  // Reject legacy fixed path for new tokens — every upload must use a unique path.
+  if (!pathname.includes(`/${id}-motion-`)) return null;
   if (clientPayload && clientPayload !== id) return null;
   return id;
 }
@@ -55,8 +51,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         return {
           allowedContentTypes: ["video/mp4"],
           maximumSizeInBytes: MAX_BYTES,
+          // Unique pathname per upload — never overwrite a cached CDN object.
           addRandomSuffix: false,
-          allowOverwrite: true,
+          allowOverwrite: false,
           tokenPayload: JSON.stringify({ id }),
         };
       },

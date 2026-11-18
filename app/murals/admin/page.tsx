@@ -2,7 +2,7 @@
 
 import { upload } from "@vercel/blob/client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { blobMotionPath } from "@/lib/murals/ns";
+import { newMotionBlobPath } from "@/lib/murals/ns";
 import type {
   GenerateAttemptFailure,
   MuralItem,
@@ -686,7 +686,8 @@ export default function MuralsAdminPage() {
       if (!isDevEnv() && adminKey.trim()) {
         authHeaders["x-admin-key"] = adminKey.trim();
       }
-      const blob = await upload(blobMotionPath(id), file, {
+      // Unique pathname per upload so Blob CDN cannot keep serving the prior mp4.
+      const blob = await upload(newMotionBlobPath(id), file, {
         access: "public",
         handleUploadUrl: "/api/murals/admin/motion-upload",
         clientPayload: id,
@@ -1365,6 +1366,7 @@ export default function MuralsAdminPage() {
                     {motion ? (
                       <div className="flex flex-wrap items-start gap-3">
                         <video
+                          key={motion.url}
                           src={motion.url}
                           muted
                           loop
@@ -1644,6 +1646,22 @@ export default function MuralsAdminPage() {
                   <p className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-[#666]">
                     Engine: {item.record.engine}
                   </p>
+                  {(() => {
+                    const motion = muralMotionOf(item);
+                    if (!motion) {
+                      return (
+                        <p className="font-mono text-[0.6875rem] text-[#666]">
+                          Motion: none
+                        </p>
+                      );
+                    }
+                    return (
+                      <p className="font-mono text-[0.6875rem] text-[#666]">
+                        Motion: {motion.width}×{motion.height} · {motion.seconds}
+                        s
+                      </p>
+                    );
+                  })()}
                   {item.record.directedScene || item.record.directedCast ? (
                     <div className="border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
                       <p className="mb-2 uppercase tracking-[0.08em] text-[#666]">

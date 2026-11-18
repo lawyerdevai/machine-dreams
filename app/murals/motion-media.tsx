@@ -180,6 +180,7 @@ export function MotionMedia({
 
         {videoMounted && motion?.url ? (
           <video
+            key={motion.url}
             ref={videoRef}
             className={`murals-motion__video${showOverlay ? " is-ready" : ""}`}
             src={motion.url}
