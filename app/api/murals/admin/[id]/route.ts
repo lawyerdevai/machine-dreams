@@ -1,6 +1,7 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import type { FrameKind } from "@/lib/murals/frame";
-import { blobMotionPath } from "@/lib/murals/ns";
+import { isMotionPathForMural } from "@/lib/murals/ns";
 import { deleteMuralItem, updateMuralItem } from "@/lib/murals/store";
 import type { MuralKind, MuralMotion, MuralStatus } from "@/lib/murals/types";
 import { requireMuralsAdmin } from "../guard";
@@ -45,11 +46,11 @@ function parseMotionPatch(
   if (parsed.protocol !== "https:" || !isBlobHost(parsed)) {
     return { ok: false, error: "motion.url must be a Vercel Blob https URL." };
   }
-  // Blob pathnames look like /murals/<id>.mp4 or /murals-dev/<id>.mp4
-  if (!parsed.pathname.endsWith(`/${blobMotionPath(muralId)}`)) {
+  // Accept legacy /{NS}/{id}.mp4 and unique /{NS}/{id}-motion-{suffix}.mp4
+  if (!isMotionPathForMural(parsed.pathname, muralId)) {
     return {
       ok: false,
-      error: `motion.url must point at ${blobMotionPath(muralId)}.`,
+      error: `motion.url must be a Blob motion object for mural ${muralId}.`,
     };
   }
   const width = typeof m.width === "number" ? m.width : Number(m.width);
@@ -156,6 +157,11 @@ export async function PATCH(
   const item = await updateMuralItem(id, patch);
   if (!item) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  if ("motion" in (body ?? {})) {
+    // Public gallery + viewing room ISR (revalidate=300) must pick up new motion.url.
+    revalidatePath("/murals");
+    revalidatePath(`/murals/${id}`);
   }
   return NextResponse.json({ ok: true, item });
 }

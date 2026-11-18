@@ -145,20 +145,28 @@ export async function updateMuralItem(
       next.approvedAt = null;
     }
   }
+  const prevMotion = muralMotionOf(item);
   if (patch.motion === null) {
-    const prevMotion = muralMotionOf(item);
     delete next.record.motion;
-    if (prevMotion?.url) {
-      try {
-        await del(prevMotion.url);
-      } catch {
-        // Blob may already be gone.
-      }
-    }
   } else if (patch.motion) {
     next.record.motion = patch.motion;
   }
   await saveMuralItem(next);
+
+  // Delete the previous motion blob only after the record is saved. Never fail
+  // the update if Blob delete fails (CDN may still serve old URL briefly).
+  if (
+    "motion" in patch &&
+    prevMotion?.url &&
+    prevMotion.url !== patch.motion?.url
+  ) {
+    try {
+      await del(prevMotion.url);
+    } catch {
+      // Blob may already be gone or unreachable.
+    }
+  }
+
   return normalizeItem(next);
 }
 
