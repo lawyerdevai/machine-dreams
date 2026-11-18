@@ -26,6 +26,14 @@ export type NormieCastMember = {
   directedDescription?: string;
 };
 
+/** Optional looping clip attached after generation (admin upload). */
+export type MuralMotion = {
+  url: string;
+  width: number;
+  height: number;
+  seconds: number;
+};
+
 /** Full generator output stored under the mural record. */
 export type MuralGeneratorRecord = {
   version: "v2" | "v3";
@@ -62,6 +70,11 @@ export type MuralGeneratorRecord = {
   directedScene?: string;
   /** Directed-mode cast text, one Name: description per line (admin / internal). */
   directedCast?: string;
+  /**
+   * Optional looping video for the viewing room. Public surfaces may expose
+   * this subset; omit on records without motion.
+   */
+  motion?: MuralMotion;
 };
 
 export type MuralItem = {
@@ -96,7 +109,38 @@ export type MuralPublicItem = {
   kind: MuralKind;
   seasonNumber?: number;
   day?: number;
+  /** Present only when the piece has an uploaded motion clip. */
+  motion?: MuralMotion;
 };
+
+/** Pull a valid motion object off a stored record, if any. */
+export function muralMotionOf(
+  item: { record?: { motion?: unknown } } | null | undefined
+): MuralMotion | undefined {
+  const raw = item?.record?.motion;
+  if (!raw || typeof raw !== "object") return undefined;
+  const m = raw as Record<string, unknown>;
+  if (typeof m.url !== "string" || !/^https:\/\//i.test(m.url)) return undefined;
+  if (
+    typeof m.width !== "number" ||
+    !Number.isFinite(m.width) ||
+    m.width <= 0 ||
+    typeof m.height !== "number" ||
+    !Number.isFinite(m.height) ||
+    m.height <= 0 ||
+    typeof m.seconds !== "number" ||
+    !Number.isFinite(m.seconds) ||
+    m.seconds <= 0
+  ) {
+    return undefined;
+  }
+  return {
+    url: m.url,
+    width: Math.round(m.width),
+    height: Math.round(m.height),
+    seconds: m.seconds,
+  };
+}
 
 /** Normalize stored kind; records without it count as moment. */
 export function muralKindOf(

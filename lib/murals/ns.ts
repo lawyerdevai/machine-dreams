@@ -17,3 +17,7 @@ export function historyKey() {
 export function blobPath(id: string) {
   return `${NS}/${id}.png`;
 }
+
+export function blobMotionPath(id: string) {
+  return `${NS}/${id}.mp4`;
+}

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { listMuralItems } from "@/lib/murals/store";
-import { muralKindOf, type MuralPublicItem } from "@/lib/murals/types";
+import {
+  muralKindOf,
+  muralMotionOf,
+  type MuralPublicItem,
+} from "@/lib/murals/types";
 
 function toPublic(item: {
   id: string;
@@ -13,6 +17,7 @@ function toPublic(item: {
   kind?: string | null;
   createdAt: number;
   status: string;
+  record?: { motion?: unknown };
 }): MuralPublicItem | null {
   if (item.status !== "approved") return null;
   const kind = muralKindOf(item);
@@ -40,6 +45,8 @@ function toPublic(item: {
   ) {
     publicItem.day = Math.trunc(item.day);
   }
+  const motion = muralMotionOf(item);
+  if (motion) publicItem.motion = motion;
   return publicItem;
 }
 

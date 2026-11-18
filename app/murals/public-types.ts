@@ -1,4 +1,4 @@
-import type { MuralKind } from "@/lib/murals/types";
+import type { MuralKind, MuralMotion } from "@/lib/murals/types";
 
 /** Public gallery fields only — never seasonName or other internal data. */
 export type PublicMural = {
@@ -12,6 +12,8 @@ export type PublicMural = {
   seasonNumber?: number;
   /** Optional world day for kind "moment". */
   day?: number;
+  /** Optional looping clip; omit when the piece has no motion. */
+  motion?: MuralMotion;
 };
 
 /** Season tab: seasonNumber desc, then newest createdAt. */
