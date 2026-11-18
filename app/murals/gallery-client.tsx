@@ -12,7 +12,6 @@ import {
 } from "react";
 import { sortSeasonMurals, type PublicMural } from "./public-types";
 import { MuralFrame, muralAlt } from "./mural-frame";
-import { MotionLoopLabel } from "./motion-media";
 import { publicKindLabel, WallLabel } from "./wall-label";
 
 type ViewMode = "timeline" | "grid";
@@ -170,25 +169,78 @@ function StageWork({ item }: { item: PublicMural }) {
   );
 }
 
-function GridTile({ item }: { item: PublicMural }) {
+function GridTile({
+  item,
+  playing,
+  onToggleLoop,
+  onPlaybackError,
+}: {
+  item: PublicMural;
+  playing: boolean;
+  onToggleLoop: () => void;
+  onPlaybackError: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const motion = item.motion;
+  const canPlay = Boolean(motion?.url) && !failed;
+  const showVideo = playing && canPlay;
+
+  useEffect(() => {
+    setFailed(false);
+  }, [motion?.url]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !showVideo) return;
+    el.muted = true;
+    const play = el.play();
+    if (play && typeof play.catch === "function") {
+      void play.catch(() => {
+        setFailed(true);
+        onPlaybackError();
+      });
+    }
+  }, [showVideo, onPlaybackError]);
+
   return (
-    <Link
-      href={`/murals/${item.id}`}
-      className="murals-grid__item"
-      role="listitem"
-    >
+    <div className="murals-grid__item" role="listitem">
       <div className="murals-hang">
         <div className="murals-hang__spot" aria-hidden="true" />
         <div className="murals-hang__body">
-          <div className="murals-hang__shadow w-full">
-            <MuralFrame
-              imageUrl={item.imageUrl}
-              alt={muralAlt(item.title, item.caption)}
-              sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 220px"
-              loading="lazy"
-              quality={60}
-            />
-          </div>
+          <Link
+            href={`/murals/${item.id}`}
+            className="murals-grid__media-link murals-hang__shadow w-full"
+          >
+            {showVideo && motion ? (
+              <div className="mural-frame">
+                <div className="mural-frame__inner">
+                  <video
+                    ref={videoRef}
+                    className="murals-grid__video"
+                    src={motion.url}
+                    poster={item.imageUrl}
+                    muted
+                    loop
+                    playsInline
+                    preload="none"
+                    onError={() => {
+                      setFailed(true);
+                      onPlaybackError();
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <MuralFrame
+                imageUrl={item.imageUrl}
+                alt={muralAlt(item.title, item.caption)}
+                sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 220px"
+                loading="lazy"
+                quality={60}
+              />
+            )}
+          </Link>
           <WallLabel
             title={item.title}
             caption=""
@@ -198,10 +250,24 @@ function GridTile({ item }: { item: PublicMural }) {
             titleAs="h2"
             align="center"
           />
-          {item.motion ? <MotionLoopLabel /> : null}
+          {canPlay ? (
+            <button
+              type="button"
+              className="murals-label__loop murals-label__loop-btn"
+              aria-pressed={playing}
+              aria-label={playing ? "Stop animation" : "Play animation"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleLoop();
+              }}
+            >
+              {playing ? "STOP" : "LOOP"}
+            </button>
+          ) : null}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -258,6 +324,7 @@ function KindGallery({
 }) {
   const [view, setView] = useState<ViewMode>("timeline");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [gridPlayingId, setGridPlayingId] = useState<string | null>(null);
   const [gridCount, setGridCount] = useState(GRID_PAGE);
   const [jumpValue, setJumpValue] = useState("");
   const [jumpError, setJumpError] = useState<string | null>(null);
@@ -367,9 +434,18 @@ function KindGallery({
     (mode: ViewMode) => {
       setView(mode);
       writeStoredView(tab, mode);
+      if (mode !== "grid") setGridPlayingId(null);
     },
     [tab]
   );
+
+  const toggleGridLoop = useCallback((id: string) => {
+    setGridPlayingId((current) => (current === id ? null : id));
+  }, []);
+
+  const stopGridLoop = useCallback(() => {
+    setGridPlayingId(null);
+  }, []);
 
   const applyDockScales = useCallback((clientX: number | null) => {
     if (!hasFinePointer()) {
@@ -734,7 +810,13 @@ function KindGallery({
         <div className="murals-grid-wrap">
           <div className="murals-grid" role="list" aria-label="Murals grid">
             {gridVisible.map((item) => (
-              <GridTile key={item.id} item={item} />
+              <GridTile
+                key={item.id}
+                item={item}
+                playing={gridPlayingId === item.id}
+                onToggleLoop={() => toggleGridLoop(item.id)}
+                onPlaybackError={stopGridLoop}
+              />
             ))}
           </div>
           {gridCount < displayItems.length ? (
