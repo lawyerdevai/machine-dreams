@@ -13,66 +13,26 @@ import {
 import type { MuralMotion } from "@/lib/murals/types";
 import { MuralFrame } from "./mural-frame";
 
-type Props = {
-  imageUrl: string;
-  alt: string;
-  motion?: MuralMotion;
-  sizes: string;
-  priority?: boolean;
-  /** When set, still image click opens lightbox (room). */
-  onOpenLightbox?: () => void;
-  openLabel?: string;
-  /** Fill the lightbox stage instead of the hanging frame. */
-  variant?: "frame" | "lightbox";
+type Playback = {
+  playing: boolean;
+  hasMotion: boolean;
+  toggle: (e?: ReactMouseEvent | ReactKeyboardEvent) => void;
+  onVideoError: () => void;
 };
 
-/**
- * Still image by default. Optional motion toggle plays muted looping video
- * in place. Never autoplays (including under prefers-reduced-motion).
- */
-export function MotionMedia({
-  imageUrl,
-  alt,
-  motion,
-  sizes,
-  priority = false,
-  onOpenLightbox,
-  openLabel,
-  variant = "frame",
-}: Props) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+/** Shared play/stop state for muted looping motion (never autoplays). */
+export function useMotionPlayback(
+  motion: MuralMotion | undefined,
+  imageUrl: string
+): Playback {
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
-  const labelId = useId();
-
   const hasMotion = Boolean(motion?.url) && !failed;
 
   useEffect(() => {
     setPlaying(false);
     setFailed(false);
   }, [motion?.url, imageUrl]);
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    if (playing) {
-      el.muted = true;
-      const p = el.play();
-      if (p && typeof p.catch === "function") {
-        void p.catch(() => {
-          setFailed(true);
-          setPlaying(false);
-        });
-      }
-    } else {
-      el.pause();
-      try {
-        el.currentTime = 0;
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [playing]);
 
   const toggle = useCallback(
     (e?: ReactMouseEvent | ReactKeyboardEvent) => {
@@ -88,6 +48,64 @@ export function MotionMedia({
     setFailed(true);
     setPlaying(false);
   }, []);
+
+  return { playing, hasMotion, toggle, onVideoError };
+}
+
+type MediaProps = {
+  imageUrl: string;
+  alt: string;
+  motion?: MuralMotion;
+  sizes: string;
+  priority?: boolean;
+  onOpenLightbox?: () => void;
+  openLabel?: string;
+  variant?: "frame" | "lightbox";
+  playing: boolean;
+  hasMotion: boolean;
+  onVideoError: () => void;
+};
+
+/**
+ * Still image by default; optional muted looping video in place.
+ * Toggle lives outside this component so nothing overlays the artwork.
+ */
+export function MotionMedia({
+  imageUrl,
+  alt,
+  motion,
+  sizes,
+  priority = false,
+  onOpenLightbox,
+  openLabel,
+  variant = "frame",
+  playing,
+  hasMotion,
+  onVideoError,
+}: MediaProps) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const labelId = useId();
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (playing && hasMotion) {
+      el.muted = true;
+      const p = el.play();
+      if (p && typeof p.catch === "function") {
+        void p.catch(() => {
+          onVideoError();
+        });
+      }
+    } else {
+      el.pause();
+      try {
+        el.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [playing, hasMotion, onVideoError]);
 
   const frameStill = (
     <MuralFrame
@@ -115,13 +133,13 @@ export function MotionMedia({
 
   return (
     <div
-      className={`murals-motion murals-motion--${variant}${playing ? " is-playing" : ""}`}
+      className={`murals-motion murals-motion--${variant}${playing && hasMotion ? " is-playing" : ""}`}
     >
-      {playing && hasMotion ? (
+      {playing && hasMotion && motion?.url ? (
         <video
           ref={videoRef}
           className="murals-motion__video"
-          src={motion!.url}
+          src={motion.url}
           poster={imageUrl}
           muted
           loop
@@ -142,29 +160,6 @@ export function MotionMedia({
       ) : (
         <div className="murals-motion__still">{still}</div>
       )}
-
-      {hasMotion ? (
-        <button
-          type="button"
-          className="murals-motion__toggle"
-          aria-pressed={playing}
-          aria-label={playing ? "Stop animation" : "Play animation"}
-          onClick={toggle}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              toggle(e);
-            }
-          }}
-        >
-          <span className="murals-motion__icon" aria-hidden="true">
-            {playing ? (
-              <span className="murals-motion__icon-stop" />
-            ) : (
-              <span className="murals-motion__icon-play" />
-            )}
-          </span>
-        </button>
-      ) : null}
       <span id={labelId} className="sr-only">
         {alt}
       </span>
@@ -172,15 +167,38 @@ export function MotionMedia({
   );
 }
 
-/** Tiny decorative mark for gallery tiles that have motion (no video load). */
-export function MotionMark() {
+/** Quiet text control under captions / in the lightbox bar. */
+export function MotionLoopToggle({
+  playing,
+  hasMotion,
+  onToggle,
+  className = "",
+}: {
+  playing: boolean;
+  hasMotion: boolean;
+  onToggle: (e?: ReactMouseEvent | ReactKeyboardEvent) => void;
+  className?: string;
+}) {
+  if (!hasMotion) return null;
   return (
-    <span
-      className="murals-motion-mark"
-      aria-hidden="true"
-      title="Has animation"
+    <button
+      type="button"
+      className={`murals-motion__loop-toggle ${className}`.trim()}
+      aria-pressed={playing}
+      aria-label={playing ? "Stop animation" : "Play animation"}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          onToggle(e);
+        }
+      }}
     >
-      <span className="murals-motion-mark__play" />
-    </span>
+      {playing ? "Stop loop" : "Play loop"}
+    </button>
   );
+}
+
+/** Tiny gallery metadata label — no icon, no video load. */
+export function MotionLoopLabel() {
+  return <p className="murals-label__loop">LOOP</p>;
 }
