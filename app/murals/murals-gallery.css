@@ -386,11 +386,16 @@
 }
 
 .murals-motion--frame .murals-motion__base .mural-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
   box-shadow: none;
 }
 
 .murals-motion--frame .murals-motion__base .mural-frame__inner {
-  /* Stage already locks 3:2 from the still — fill it, don't re-aspect. */
+  /* Fill the stage's 3:2 box — do not collapse under next/image fill. */
+  position: absolute;
+  inset: 0;
   aspect-ratio: auto;
   width: 100%;
   height: 100%;

@@ -13,6 +13,8 @@ import {
 import type { MuralMotion } from "@/lib/murals/types";
 import { MuralFrame } from "./mural-frame";
 
+const VIDEO_FADE_MS = 150;
+
 type Playback = {
   playing: boolean;
   hasMotion: boolean;
@@ -69,8 +71,8 @@ type MediaProps = {
 };
 
 /**
- * Still always mounted (layout owner). Video is an absolute overlay that fades
- * in only after the first frame is ready — pixel-seamless play/stop.
+ * Still always mounted (layout owner). Video mounts only while playing, as an
+ * absolute overlay that fades in after the first frame — pixel-seamless.
  */
 export function MotionMedia({
   imageUrl,
@@ -90,41 +92,37 @@ export function MotionMedia({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const labelId = useId();
   const [videoReady, setVideoReady] = useState(false);
+  const [videoMounted, setVideoMounted] = useState(false);
   const shouldPlay = Boolean(playing && hasMotion && motion?.url);
-  // When play starts, clear "ready" during render so we never flash a stale frame.
+  // Sync mount/ready when play intent flips (avoid stale ready flash).
   const [playEpoch, setPlayEpoch] = useState(shouldPlay);
   if (shouldPlay !== playEpoch) {
     setPlayEpoch(shouldPlay);
-    if (shouldPlay) setVideoReady(false);
+    if (shouldPlay) {
+      setVideoReady(false);
+      setVideoMounted(true);
+    } else {
+      setVideoReady(false);
+    }
   }
   const showOverlay = shouldPlay && videoReady;
 
+  // After stop fade-out, unmount the video — still stays mounted.
+  useEffect(() => {
+    if (shouldPlay || !videoMounted) return;
+    const t = window.setTimeout(() => setVideoMounted(false), VIDEO_FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [shouldPlay, videoMounted]);
+
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || !hasMotion || !motion?.url) return;
-
-    if (shouldPlay) {
-      if (el.getAttribute("src") !== motion.url) {
-        el.src = motion.url;
-      }
-      el.muted = true;
-      const p = el.play();
-      if (p && typeof p.catch === "function") {
-        void p.catch(() => onVideoError());
-      }
-      return;
+    if (!el || !shouldPlay || !motion?.url) return;
+    el.muted = true;
+    const p = el.play();
+    if (p && typeof p.catch === "function") {
+      void p.catch(() => onVideoError());
     }
-
-    el.pause();
-    try {
-      el.currentTime = 0;
-    } catch {
-      /* ignore */
-    }
-    // Drop src so the next play still uses preload=none / fresh fetch.
-    el.removeAttribute("src");
-    el.load();
-  }, [shouldPlay, hasMotion, motion?.url, onVideoError]);
+  }, [shouldPlay, videoMounted, motion?.url, onVideoError]);
 
   const markReady = useCallback(() => {
     setVideoReady(true);
@@ -132,6 +130,7 @@ export function MotionMedia({
 
   const handleError = useCallback(() => {
     setVideoReady(false);
+    setVideoMounted(false);
     onVideoError();
   }, [onVideoError]);
 
@@ -179,10 +178,11 @@ export function MotionMedia({
           <div className="murals-motion__base">{still}</div>
         )}
 
-        {hasMotion && motion?.url ? (
+        {videoMounted && motion?.url ? (
           <video
             ref={videoRef}
             className={`murals-motion__video${showOverlay ? " is-ready" : ""}`}
+            src={motion.url}
             poster={imageUrl}
             muted
             loop
