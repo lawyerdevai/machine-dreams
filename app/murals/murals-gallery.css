@@ -340,7 +340,7 @@
   background: #0a0a0a;
 }
 
-/* —— Optional motion (viewing room / lightbox) —— */
+/* —— Optional motion (viewing room / lightbox / grid) —— */
 .murals-motion {
   position: relative;
   width: 100%;
@@ -353,33 +353,73 @@
   min-height: 0;
 }
 
-.murals-motion__open,
-.murals-motion__still {
+/* Still owns layout; video is an absolute overlay that never resizes the box. */
+.murals-motion__stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+.murals-motion--frame .murals-motion__stage {
+  /* Still frame aspect — not video metadata. */
+  aspect-ratio: 3 / 2;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.murals-motion--lightbox .murals-motion__stage {
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.murals-motion__base {
   display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  line-height: 0;
+}
+
+.murals-motion--frame .murals-motion__base .mural-frame {
+  box-shadow: none;
+}
+
+.murals-motion--frame .murals-motion__base .mural-frame__inner {
+  /* Stage already locks 3:2 from the still — fill it, don't re-aspect. */
+  aspect-ratio: auto;
   width: 100%;
   height: 100%;
 }
 
-.murals-motion--lightbox .murals-motion__still,
-.murals-motion--lightbox .murals-motion__video {
+.murals-motion--lightbox .murals-motion__base {
   position: absolute;
   inset: 0;
 }
 
-.murals-motion--lightbox .murals-motion__video {
+.murals-motion__video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  background: #0a0a0a;
+  object-fit: cover;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+  border: 0;
 }
 
-.murals-motion--frame .murals-motion__video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  background: #0a0a0a;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+.murals-motion--lightbox .murals-motion__video {
+  object-fit: contain;
+}
+
+.murals-motion__video.is-ready {
+  opacity: 1;
 }
 
 .murals-motion__loop-toggle {
@@ -466,14 +506,6 @@
   outline-offset: 4px;
 }
 
-.murals-grid__video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: #0a0a0a;
-}
 
 /* —— Labels —— */
 .murals-label {
@@ -957,6 +989,22 @@
   aspect-ratio: 3 / 2;
 }
 
+.murals-room__hang .murals-motion__stage {
+  width: 100%;
+  height: 100%;
+  /* Parent .murals-motion already locks 3:2 in the room fit box. */
+  aspect-ratio: auto;
+  max-height: 100%;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.murals-room__hang .murals-motion__base {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .murals-room__hang .murals-motion .mural-frame {
   width: 100%;
   height: 100%;
@@ -969,32 +1017,6 @@
   width: 100%;
   height: 100%;
   aspect-ratio: auto;
-}
-
-.murals-room__hang .murals-motion--frame .murals-motion__video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  aspect-ratio: auto;
-  object-fit: cover;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-}
-
-.murals-room__hang .murals-motion.is-playing {
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-}
-
-.murals-room__hang .murals-motion:not(.is-playing) .mural-frame {
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-}
-
-.murals-room__hang .murals-motion__open,
-.murals-room__hang .murals-motion__still {
-  position: relative;
-  width: 100%;
-  height: 100%;
 }
 
 .murals-room__hang .murals-hang__spot {
@@ -1247,6 +1269,10 @@
 
   /* Motion never autoplays; toggle remains click-to-play. */
   .murals-motion__loop-toggle {
+    transition: none !important;
+  }
+
+  .murals-motion__video {
     transition: none !important;
   }
 }

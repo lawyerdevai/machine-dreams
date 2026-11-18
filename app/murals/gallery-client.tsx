@@ -12,6 +12,7 @@ import {
 } from "react";
 import { sortSeasonMurals, type PublicMural } from "./public-types";
 import { MuralFrame, muralAlt } from "./mural-frame";
+import { MotionMedia } from "./motion-media";
 import { publicKindLabel, WallLabel } from "./wall-label";
 
 type ViewMode = "timeline" | "grid";
@@ -181,27 +182,12 @@ function GridTile({
   onPlaybackError: () => void;
 }) {
   const [failed, setFailed] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const motion = item.motion;
   const canPlay = Boolean(motion?.url) && !failed;
-  const showVideo = playing && canPlay;
 
   useEffect(() => {
     setFailed(false);
   }, [motion?.url]);
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !showVideo) return;
-    el.muted = true;
-    const play = el.play();
-    if (play && typeof play.catch === "function") {
-      void play.catch(() => {
-        setFailed(true);
-        onPlaybackError();
-      });
-    }
-  }, [showVideo, onPlaybackError]);
 
   return (
     <div className="murals-grid__item" role="listitem">
@@ -212,25 +198,21 @@ function GridTile({
             href={`/murals/${item.id}`}
             className="murals-grid__media-link murals-hang__shadow w-full"
           >
-            {showVideo && motion ? (
-              <div className="mural-frame">
-                <div className="mural-frame__inner">
-                  <video
-                    ref={videoRef}
-                    className="murals-grid__video"
-                    src={motion.url}
-                    poster={item.imageUrl}
-                    muted
-                    loop
-                    playsInline
-                    preload="none"
-                    onError={() => {
-                      setFailed(true);
-                      onPlaybackError();
-                    }}
-                  />
-                </div>
-              </div>
+            {canPlay ? (
+              <MotionMedia
+                imageUrl={item.imageUrl}
+                alt={muralAlt(item.title, item.caption)}
+                motion={motion}
+                sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 220px"
+                loading="lazy"
+                quality={60}
+                playing={playing}
+                hasMotion={canPlay}
+                onVideoError={() => {
+                  setFailed(true);
+                  onPlaybackError();
+                }}
+              />
             ) : (
               <MuralFrame
                 imageUrl={item.imageUrl}
