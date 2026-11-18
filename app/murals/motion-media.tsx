@@ -198,7 +198,3 @@ export function MotionLoopToggle({
   );
 }
 
-/** Tiny gallery metadata label — no icon, no video load. */
-export function MotionLoopLabel() {
-  return <p className="murals-label__loop">LOOP</p>;
-}
