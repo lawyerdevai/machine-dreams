@@ -13,7 +13,11 @@ import {
 import { createPortal } from "react-dom";
 import type { PublicMural } from "./public-types";
 import { muralAlt } from "./mural-frame";
-import { MotionMedia } from "./motion-media";
+import {
+  MotionLoopToggle,
+  MotionMedia,
+  useMotionPlayback,
+} from "./motion-media";
 import { WallLabel, publicKindLabel } from "./wall-label";
 
 type Props = {
@@ -50,6 +54,8 @@ export function ViewingRoomClient({
   const canPortal = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const lightboxOpen = searchParams.get(LIGHTBOX_PARAM) === "1";
   const [browserFullscreen, setBrowserFullscreen] = useState(false);
+  const roomPlayback = useMotionPlayback(item.motion, item.imageUrl);
+  const lightboxPlayback = useMotionPlayback(item.motion, item.imageUrl);
 
   // Site header Gallery lives outside app/murals; point it at the matching tab.
   useEffect(() => {
@@ -220,6 +226,9 @@ export function ViewingRoomClient({
                   sizes="100vw"
                   priority
                   variant="lightbox"
+                  playing={lightboxPlayback.playing}
+                  hasMotion={lightboxPlayback.hasMotion}
+                  onVideoError={lightboxPlayback.onVideoError}
                 />
               </div>
               <button
@@ -243,6 +252,12 @@ export function ViewingRoomClient({
                 ) : null}
               </div>
               <div className="murals-lightbox__actions">
+                <MotionLoopToggle
+                  playing={lightboxPlayback.playing}
+                  hasMotion={lightboxPlayback.hasMotion}
+                  onToggle={lightboxPlayback.toggle}
+                  className="murals-lightbox__loop"
+                />
                 <button
                   type="button"
                   className="murals-lightbox__action"
@@ -300,6 +315,9 @@ export function ViewingRoomClient({
                 priority
                 onOpenLightbox={openLightbox}
                 openLabel={`View ${item.title} full screen`}
+                playing={roomPlayback.playing}
+                hasMotion={roomPlayback.hasMotion}
+                onVideoError={roomPlayback.onVideoError}
               />
             </div>
             <WallLabel
@@ -310,6 +328,11 @@ export function ViewingRoomClient({
               day={item.day}
               titleAs="h1"
               align="left"
+            />
+            <MotionLoopToggle
+              playing={roomPlayback.playing}
+              hasMotion={roomPlayback.hasMotion}
+              onToggle={roomPlayback.toggle}
             />
           </div>
         </div>
