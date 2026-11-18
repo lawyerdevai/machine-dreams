@@ -12,6 +12,7 @@ import {
 } from "react";
 import { sortSeasonMurals, type PublicMural } from "./public-types";
 import { MuralFrame, muralAlt } from "./mural-frame";
+import { MotionMark } from "./motion-media";
 import { publicKindLabel, WallLabel } from "./wall-label";
 
 type ViewMode = "timeline" | "grid";
@@ -179,7 +180,7 @@ function GridTile({ item }: { item: PublicMural }) {
       <div className="murals-hang">
         <div className="murals-hang__spot" aria-hidden="true" />
         <div className="murals-hang__body">
-          <div className="murals-hang__shadow w-full">
+          <div className="murals-hang__shadow murals-hang__shadow--marked w-full">
             <MuralFrame
               imageUrl={item.imageUrl}
               alt={muralAlt(item.title, item.caption)}
@@ -187,6 +188,7 @@ function GridTile({ item }: { item: PublicMural }) {
               loading="lazy"
               quality={60}
             />
+            {item.motion ? <MotionMark /> : null}
           </div>
           <WallLabel
             title={item.title}
@@ -703,6 +705,7 @@ function KindGallery({
                           loading="lazy"
                           quality={40}
                         />
+                        {item.motion ? <MotionMark /> : null}
                       </span>
                       {tab === "seasons" ? (
                         <span className="murals-strip__season">

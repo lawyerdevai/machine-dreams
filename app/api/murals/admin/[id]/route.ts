@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { FrameKind } from "@/lib/murals/frame";
+import { blobMotionPath } from "@/lib/murals/ns";
 import { deleteMuralItem, updateMuralItem } from "@/lib/murals/store";
-import type { MuralKind, MuralStatus } from "@/lib/murals/types";
+import type { MuralKind, MuralMotion, MuralStatus } from "@/lib/murals/types";
 import { requireMuralsAdmin } from "../guard";
 
 const FRAME_KINDS: readonly FrameKind[] = [
@@ -15,6 +16,64 @@ const FRAME_KINDS: readonly FrameKind[] = [
 ];
 
 const STATUSES: readonly MuralStatus[] = ["pending", "approved", "rejected"];
+
+function isBlobHost(url: URL): boolean {
+  return (
+    url.hostname === "public.blob.vercel-storage.com" ||
+    url.hostname.endsWith(".public.blob.vercel-storage.com")
+  );
+}
+
+function parseMotionPatch(
+  raw: unknown,
+  muralId: string
+): { ok: true; motion: MuralMotion | null } | { ok: false; error: string } {
+  if (raw === null) return { ok: true, motion: null };
+  if (!raw || typeof raw !== "object") {
+    return { ok: false, error: "Invalid motion payload." };
+  }
+  const m = raw as Record<string, unknown>;
+  if (typeof m.url !== "string" || !m.url.trim()) {
+    return { ok: false, error: "motion.url is required." };
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(m.url.trim());
+  } catch {
+    return { ok: false, error: "motion.url is not a valid URL." };
+  }
+  if (parsed.protocol !== "https:" || !isBlobHost(parsed)) {
+    return { ok: false, error: "motion.url must be a Vercel Blob https URL." };
+  }
+  // Blob pathnames look like /murals/<id>.mp4 or /murals-dev/<id>.mp4
+  if (!parsed.pathname.endsWith(`/${blobMotionPath(muralId)}`)) {
+    return {
+      ok: false,
+      error: `motion.url must point at ${blobMotionPath(muralId)}.`,
+    };
+  }
+  const width = typeof m.width === "number" ? m.width : Number(m.width);
+  const height = typeof m.height === "number" ? m.height : Number(m.height);
+  const seconds = typeof m.seconds === "number" ? m.seconds : Number(m.seconds);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isInteger(width)) {
+    return { ok: false, error: "motion.width must be a positive integer." };
+  }
+  if (!Number.isFinite(height) || height <= 0 || !Number.isInteger(height)) {
+    return { ok: false, error: "motion.height must be a positive integer." };
+  }
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 120) {
+    return { ok: false, error: "motion.seconds must be a positive number ≤ 120." };
+  }
+  return {
+    ok: true,
+    motion: {
+      url: parsed.toString(),
+      width: Math.trunc(width),
+      height: Math.trunc(height),
+      seconds,
+    },
+  };
+}
 
 export async function PATCH(
   request: Request,
@@ -33,6 +92,7 @@ export async function PATCH(
     seasonNumber?: number;
     kind?: MuralKind;
     day?: number | null;
+    motion?: MuralMotion | null;
   } = {};
 
   if (typeof body?.title === "string") patch.title = body.title;
@@ -83,6 +143,14 @@ export async function PATCH(
     ) {
       patch.day = Number(rawDay.trim());
     }
+  }
+
+  if ("motion" in (body ?? {})) {
+    const parsed = parseMotionPatch(body.motion, id);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    patch.motion = parsed.motion;
   }
 
   const item = await updateMuralItem(id, patch);

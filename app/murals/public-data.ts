@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getMuralItem, listMuralItems } from "@/lib/murals/store";
-import { muralKindOf } from "@/lib/murals/types";
+import { muralKindOf, muralMotionOf } from "@/lib/murals/types";
 import { sortSeasonMurals, type PublicMural } from "./public-types";
 
 export type { PublicMural } from "./public-types";
@@ -17,6 +17,7 @@ function toPublic(item: {
   kind?: string | null;
   createdAt: number;
   status: string;
+  record?: { motion?: unknown };
 }): PublicMural | null {
   if (item.status !== "approved") return null;
   const kind = muralKindOf(item);
@@ -43,6 +44,8 @@ function toPublic(item: {
   ) {
     publicItem.day = Math.trunc(item.day);
   }
+  const motion = muralMotionOf(item);
+  if (motion) publicItem.motion = motion;
   return publicItem;
 }
 

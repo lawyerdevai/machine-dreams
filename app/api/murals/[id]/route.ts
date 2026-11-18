@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMuralItem } from "@/lib/murals/store";
-import { muralKindOf } from "@/lib/murals/types";
+import { muralKindOf, muralMotionOf } from "@/lib/murals/types";
 
 export async function GET(
   _request: Request,
@@ -22,6 +22,7 @@ export async function GET(
     kind: typeof kind;
     seasonNumber?: number;
     day?: number;
+    motion?: ReturnType<typeof muralMotionOf>;
   } = {
     id: item.id,
     title: item.title,
@@ -46,5 +47,7 @@ export async function GET(
   ) {
     body.day = Math.trunc(item.day);
   }
+  const motion = muralMotionOf(item);
+  if (motion) body.motion = motion;
   return NextResponse.json(body);
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -13,7 +12,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { PublicMural } from "./public-types";
-import { MuralFrame, muralAlt } from "./mural-frame";
+import { muralAlt } from "./mural-frame";
+import { MotionMedia } from "./motion-media";
 import { WallLabel, publicKindLabel } from "./wall-label";
 
 type Props = {
@@ -213,15 +213,13 @@ export function ViewingRoomClient({
                 ←
               </button>
               <div className="murals-lightbox__image">
-                <Image
-                  src={item.imageUrl}
+                <MotionMedia
+                  imageUrl={item.imageUrl}
                   alt={alt}
-                  fill
+                  motion={item.motion}
                   sizes="100vw"
-                  quality={90}
                   priority
-                  className="object-contain"
-                  draggable={false}
+                  variant="lightbox"
                 />
               </div>
               <button
@@ -293,21 +291,17 @@ export function ViewingRoomClient({
         <div className="murals-hang murals-room__hang">
           <div className="murals-hang__spot" aria-hidden="true" />
           <div className="murals-hang__body">
-            <button
-              type="button"
-              className="murals-room__open"
-              onClick={openLightbox}
-              aria-label={`View ${item.title} full screen`}
-            >
-              <div className="murals-hang__shadow w-full">
-                <MuralFrame
-                  imageUrl={item.imageUrl}
-                  alt={alt}
-                  sizes="(max-width: 768px) 96vw, min(96vw, 56rem)"
-                  priority
-                />
-              </div>
-            </button>
+            <div className="murals-hang__shadow w-full">
+              <MotionMedia
+                imageUrl={item.imageUrl}
+                alt={alt}
+                motion={item.motion}
+                sizes="(max-width: 768px) 96vw, min(96vw, 56rem)"
+                priority
+                onOpenLightbox={openLightbox}
+                openLabel={`View ${item.title} full screen`}
+              />
+            </div>
             <WallLabel
               title={item.title}
               caption={item.caption}

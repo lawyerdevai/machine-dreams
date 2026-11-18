@@ -6,9 +6,10 @@ import type {
   MuralHistory,
   MuralItem,
   MuralKind,
+  MuralMotion,
   MuralStatus,
 } from "./types";
-import { muralKindOf } from "./types";
+import { muralKindOf, muralMotionOf } from "./types";
 
 function normalizeItem(item: MuralItem): MuralItem {
   return { ...item, kind: muralKindOf(item) };
@@ -103,11 +104,13 @@ export async function updateMuralItem(
     seasonNumber?: number;
     kind?: MuralKind;
     day?: number | null;
+    /** Set motion metadata, or null to clear. */
+    motion?: MuralMotion | null;
   }
 ): Promise<MuralItem | null> {
   const item = await getMuralItem(id);
   if (!item) return null;
-  const next: MuralItem = { ...item };
+  const next: MuralItem = { ...item, record: { ...item.record } };
   if (typeof patch.title === "string") {
     next.title = patch.title.trim().replace(/\s+/g, " ").slice(0, 120);
   }
@@ -142,6 +145,19 @@ export async function updateMuralItem(
       next.approvedAt = null;
     }
   }
+  if (patch.motion === null) {
+    const prevMotion = muralMotionOf(item);
+    delete next.record.motion;
+    if (prevMotion?.url) {
+      try {
+        await del(prevMotion.url);
+      } catch {
+        // Blob may already be gone.
+      }
+    }
+  } else if (patch.motion) {
+    next.record.motion = patch.motion;
+  }
   await saveMuralItem(next);
   return normalizeItem(next);
 }
@@ -160,6 +176,14 @@ export async function deleteMuralItem(id: string): Promise<boolean> {
       await del(item.imageUrl);
     } catch {
       // Blob may already be gone; Redis cleanup still counts as delete.
+    }
+  }
+  const motion = muralMotionOf(item);
+  if (motion?.url) {
+    try {
+      await del(motion.url);
+    } catch {
+      // Blob may already be gone.
     }
   }
   return true;

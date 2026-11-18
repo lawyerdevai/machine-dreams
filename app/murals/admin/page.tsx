@@ -1,16 +1,20 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { blobMotionPath } from "@/lib/murals/ns";
 import type {
   GenerateAttemptFailure,
   MuralItem,
   MuralKind,
+  MuralMotion,
   MuralStatus,
   NormieCastMember,
 } from "@/lib/murals/types";
-import { muralKindOf } from "@/lib/murals/types";
+import { muralKindOf, muralMotionOf } from "@/lib/murals/types";
 
 const KEY_STORAGE = "murals-admin-key";
+const MOTION_MAX_BYTES = 6 * 1024 * 1024;
 
 type RowDraft = {
   title: string;
@@ -89,6 +93,50 @@ function isTextPathRecord(item: MuralItem): boolean {
 }
 
 /** Hide seasonName in the meta line when it only repeats the season number. */
+function readVideoMeta(
+  file: File
+): Promise<{ width: number; height: number; seconds: number }> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      video.removeAttribute("src");
+      video.load();
+    };
+    video.onloadedmetadata = () => {
+      const width = Math.round(video.videoWidth);
+      const height = Math.round(video.videoHeight);
+      const seconds = video.duration;
+      cleanup();
+      if (
+        !Number.isFinite(width) ||
+        width <= 0 ||
+        !Number.isFinite(height) ||
+        height <= 0 ||
+        !Number.isFinite(seconds) ||
+        seconds <= 0
+      ) {
+        reject(new Error("Could not read video dimensions/duration."));
+        return;
+      }
+      resolve({
+        width,
+        height,
+        seconds: Math.round(seconds * 10) / 10,
+      });
+    };
+    video.onerror = () => {
+      cleanup();
+      reject(new Error("Could not load video metadata."));
+    };
+    video.src = objectUrl;
+  });
+}
+
 function metaSeasonName(item: MuralItem): string | null {
   const num = seasonNumberLabel(item);
   const name = item.seasonName.trim();
@@ -559,6 +607,7 @@ export default function MuralsAdminPage() {
       seasonNumber: number;
       kind: MuralKind;
       day: number | null;
+      motion: MuralMotion | null;
     }>,
     confirmLabel?: string
   ) {
@@ -607,6 +656,65 @@ export default function MuralsAdminPage() {
         return next;
       });
     }
+  }
+
+  async function uploadMotion(id: string, file: File) {
+    if (rowBusy[id]) return;
+    if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) {
+      setRowError((prev) => ({
+        ...prev,
+        [id]: "Motion must be an .mp4 file.",
+      }));
+      return;
+    }
+    if (file.size > MOTION_MAX_BYTES) {
+      setRowError((prev) => ({
+        ...prev,
+        [id]: `Motion file is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Max 6 MB.`,
+      }));
+      return;
+    }
+    setRowError((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setRowBusy((prev) => ({ ...prev, [id]: true }));
+    try {
+      const meta = await readVideoMeta(file);
+      const authHeaders: Record<string, string> = {};
+      if (!isDevEnv() && adminKey.trim()) {
+        authHeaders["x-admin-key"] = adminKey.trim();
+      }
+      const blob = await upload(blobMotionPath(id), file, {
+        access: "public",
+        handleUploadUrl: "/api/murals/admin/motion-upload",
+        clientPayload: id,
+        headers: authHeaders,
+        contentType: "video/mp4",
+      });
+      const motion: MuralMotion = {
+        url: blob.url,
+        width: meta.width,
+        height: meta.height,
+        seconds: meta.seconds,
+      };
+      await patchItem(id, { motion }, "Motion saved");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Motion upload failed.";
+      setRowError((prev) => ({ ...prev, [id]: message }));
+      setRowBusy((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  }
+
+  async function removeMotion(id: string) {
+    if (!window.confirm("Remove motion clip from this mural?")) return;
+    await patchItem(id, { motion: null }, "Motion removed");
   }
 
   async function removeItem(id: string) {
@@ -1246,6 +1354,69 @@ export default function MuralsAdminPage() {
                 {seasonNameMeta ? ` · ${seasonNameMeta}` : ""} ·{" "}
                 {item.record.engine} · {item.status}
               </p>
+
+              {(() => {
+                const motion = muralMotionOf(item);
+                return (
+                  <div className="flex flex-col gap-2 border border-[#0a0a0a] bg-[#faf7f0] p-3">
+                    <p className="font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+                      Motion
+                    </p>
+                    {motion ? (
+                      <div className="flex flex-wrap items-start gap-3">
+                        <video
+                          src={motion.url}
+                          muted
+                          loop
+                          playsInline
+                          preload="metadata"
+                          controls
+                          className="max-h-28 max-w-[12rem] border border-[#0a0a0a] bg-[#0a0a0a]"
+                        />
+                        <p className="font-mono text-[0.6875rem] leading-relaxed text-[#666]">
+                          {motion.width}×{motion.height} · {motion.seconds}s
+                          <br />
+                          Optional; independent of approve/publish.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="font-mono text-[0.6875rem] text-[#666]">
+                        No motion clip. Upload an .mp4 (max 6 MB).
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="btn-minimal cursor-pointer disabled:opacity-40">
+                        <input
+                          type="file"
+                          accept="video/mp4,.mp4"
+                          disabled={busy}
+                          className="sr-only"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) void uploadMotion(item.id, file);
+                          }}
+                        />
+                        {busy
+                          ? "Working…"
+                          : motion
+                            ? "Replace .mp4"
+                            : "Upload .mp4"}
+                      </label>
+                      {motion ? (
+                        <button
+                          type="button"
+                          className="btn-minimal disabled:opacity-40"
+                          disabled={busy}
+                          onClick={() => void removeMotion(item.id)}
+                        >
+                          Remove motion
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
                 Type
