@@ -406,6 +406,21 @@
   inset: 0;
 }
 
+/* Fade the loop layer once; swap active/standby videos with no transition. */
+.murals-motion__loop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+.murals-motion__loop.is-ready {
+  opacity: 1;
+}
+
 .murals-motion__video {
   position: absolute;
   inset: 0;
@@ -415,7 +430,7 @@
   background: transparent;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 150ms ease;
+  transition: none;
   border: 0;
 }
 
@@ -423,7 +438,7 @@
   object-fit: contain;
 }
 
-.murals-motion__video.is-ready {
+.murals-motion__video.is-active {
   opacity: 1;
 }
 

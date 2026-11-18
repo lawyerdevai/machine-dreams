@@ -14,6 +14,11 @@ import type { MuralMotion } from "@/lib/murals/types";
 import { MuralFrame } from "./mural-frame";
 
 const VIDEO_FADE_MS = 150;
+/**
+ * Swap before EOF. One frame (~1/30) is too tight — RVFC can miss and the
+ * element fires `ended`/pauses. ~2 frames at 24fps keeps continuity.
+ */
+const LOOP_LEAD_S = 2 / 24;
 
 type Playback = {
   playing: boolean;
@@ -70,9 +75,19 @@ type MediaProps = {
   onVideoError: () => void;
 };
 
+type VideoFrameCb = (
+  now: number,
+  metadata: { mediaTime: number; presentedFrames: number }
+) => void;
+
+type VideoWithFrameCb = HTMLVideoElement & {
+  requestVideoFrameCallback?: (cb: VideoFrameCb) => number;
+  cancelVideoFrameCallback?: (id: number) => void;
+};
+
 /**
- * Still always mounted (layout owner). Video mounts only while playing, as an
- * absolute overlay that fades in after the first frame — pixel-seamless.
+ * Still always mounted (layout owner). Two stacked videos mount only while
+ * playing and alternate at EOF for a gapless loop — native `loop` hitches.
  */
 export function MotionMedia({
   imageUrl,
@@ -89,10 +104,12 @@ export function MotionMedia({
   hasMotion,
   onVideoError,
 }: MediaProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoARef = useRef<HTMLVideoElement | null>(null);
+  const videoBRef = useRef<HTMLVideoElement | null>(null);
   const labelId = useId();
   const [videoReady, setVideoReady] = useState(false);
   const [videoMounted, setVideoMounted] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const shouldPlay = Boolean(playing && hasMotion && motion?.url);
   // Sync mount/ready when play intent flips (avoid stale ready flash).
   const [playEpoch, setPlayEpoch] = useState(shouldPlay);
@@ -101,27 +118,188 @@ export function MotionMedia({
     if (shouldPlay) {
       setVideoReady(false);
       setVideoMounted(true);
+      setActiveIndex(0);
     } else {
       setVideoReady(false);
     }
   }
   const showOverlay = shouldPlay && videoReady;
 
-  // After stop fade-out, unmount the video — still stays mounted.
+  // After stop fade-out, unmount the videos — still stays mounted.
   useEffect(() => {
     if (shouldPlay || !videoMounted) return;
     const t = window.setTimeout(() => setVideoMounted(false), VIDEO_FADE_MS);
     return () => window.clearTimeout(t);
   }, [shouldPlay, videoMounted]);
 
+  // Play / gapless double-buffer loop. Native `loop` stalls a frame on restart.
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !shouldPlay || !motion?.url) return;
-    el.muted = true;
-    const p = el.play();
-    if (p && typeof p.catch === "function") {
-      void p.catch(() => onVideoError());
+    if (!shouldPlay || !videoMounted || !motion?.url) return;
+
+    const a = videoARef.current as VideoWithFrameCb | null;
+    const b = videoBRef.current as VideoWithFrameCb | null;
+    if (!a || !b) return;
+
+    const pair: [VideoWithFrameCb, VideoWithFrameCb] = [a, b];
+    let cancelled = false;
+    let active = 0;
+    let swapping = false;
+    let rafId = 0;
+    let rvfcId: number | undefined;
+    let watching: VideoWithFrameCb | null = null;
+    let listened: HTMLVideoElement | null = null;
+    let onTimeUpdate: (() => void) | null = null;
+    let onEnded: (() => void) | null = null;
+
+    const clearWatch = () => {
+      if (watching && rvfcId != null && watching.cancelVideoFrameCallback) {
+        try {
+          watching.cancelVideoFrameCallback(rvfcId);
+        } catch {
+          /* ignore */
+        }
+      }
+      rvfcId = undefined;
+      watching = null;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      if (listened) {
+        if (onTimeUpdate) listened.removeEventListener("timeupdate", onTimeUpdate);
+        if (onEnded) listened.removeEventListener("ended", onEnded);
+      }
+      listened = null;
+      onTimeUpdate = null;
+      onEnded = null;
+    };
+
+    const nearEnd = (el: HTMLVideoElement, mediaTime: number) => {
+      const d = el.duration;
+      if (!Number.isFinite(d) || d <= 0) return false;
+      return mediaTime >= d - LOOP_LEAD_S;
+    };
+
+    const prepareStandby = (el: HTMLVideoElement) => {
+      el.muted = true;
+      try {
+        if (el.currentTime !== 0) el.currentTime = 0;
+      } catch {
+        /* ignore seek errors before metadata */
+      }
+    };
+
+    const swap = () => {
+      if (cancelled || swapping) return;
+      swapping = true;
+      clearWatch();
+
+      const from = pair[active]!;
+      const to = pair[1 - active]!;
+      to.muted = true;
+      try {
+        to.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+      const playP = to.play();
+      if (playP && typeof playP.catch === "function") {
+        void playP.catch(() => {
+          if (!cancelled) onVideoError();
+        });
+      }
+
+      active = 1 - active;
+      setActiveIndex(active);
+
+      from.pause();
+      prepareStandby(from);
+      swapping = false;
+      armWatch(to);
+    };
+
+    const armWatch = (el: VideoWithFrameCb) => {
+      clearWatch();
+      if (cancelled) return;
+      watching = el;
+      listened = el;
+
+      const trySwap = (mediaTime: number) => {
+        if (cancelled || watching !== el || swapping) return false;
+        if (!nearEnd(el, mediaTime)) return false;
+        swap();
+        return true;
+      };
+
+      // timeupdate + ended: catch EOF if RVFC misses the lead window.
+      onTimeUpdate = () => {
+        trySwap(el.currentTime);
+      };
+      onEnded = () => {
+        if (cancelled || watching !== el || swapping) return;
+        swap();
+      };
+      el.addEventListener("timeupdate", onTimeUpdate);
+      el.addEventListener("ended", onEnded);
+
+      if (typeof el.requestVideoFrameCallback === "function") {
+        const onFrame: VideoFrameCb = (_now, meta) => {
+          if (cancelled || watching !== el) return;
+          if (trySwap(meta.mediaTime)) return;
+          rvfcId = el.requestVideoFrameCallback!(onFrame);
+        };
+        rvfcId = el.requestVideoFrameCallback(onFrame);
+        return;
+      }
+
+      // Older Safari / Firefox: rAF + timeupdate/ended above.
+      const tick = () => {
+        if (cancelled || watching !== el) return;
+        if (trySwap(el.currentTime)) return;
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    };
+
+    for (const el of pair) {
+      el.muted = true;
     }
+    prepareStandby(b);
+
+    const start = a.play();
+    if (start && typeof start.catch === "function") {
+      void start.catch(() => {
+        if (!cancelled) onVideoError();
+      });
+    }
+
+    // Warm the standby decoder without showing it.
+    const warm = b.play();
+    if (warm && typeof warm.then === "function") {
+      void warm
+        .then(() => {
+          if (cancelled) return;
+          b.pause();
+          prepareStandby(b);
+        })
+        .catch(() => {
+          /* standby warm-up is best-effort */
+        });
+    }
+
+    armWatch(a);
+
+    return () => {
+      cancelled = true;
+      clearWatch();
+      for (const el of pair) {
+        try {
+          el.pause();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
   }, [shouldPlay, videoMounted, motion?.url, onVideoError]);
 
   const markReady = useCallback(() => {
@@ -179,21 +357,36 @@ export function MotionMedia({
         )}
 
         {videoMounted && motion?.url ? (
-          <video
-            key={motion.url}
-            ref={videoRef}
-            className={`murals-motion__video${showOverlay ? " is-ready" : ""}`}
-            src={motion.url}
-            poster={imageUrl}
-            muted
-            loop
-            playsInline
-            preload="none"
-            aria-labelledby={labelId}
-            onPlaying={markReady}
-            onLoadedData={markReady}
-            onError={handleError}
-          />
+          <div
+            className={`murals-motion__loop${showOverlay ? " is-ready" : ""}`}
+          >
+            <video
+              key={`a-${motion.url}`}
+              ref={videoARef}
+              className={`murals-motion__video${activeIndex === 0 ? " is-active" : ""}`}
+              src={motion.url}
+              poster={imageUrl}
+              muted
+              playsInline
+              preload="none"
+              aria-labelledby={labelId}
+              onPlaying={activeIndex === 0 ? markReady : undefined}
+              onLoadedData={activeIndex === 0 ? markReady : undefined}
+              onError={handleError}
+            />
+            <video
+              key={`b-${motion.url}`}
+              ref={videoBRef}
+              className={`murals-motion__video${activeIndex === 1 ? " is-active" : ""}`}
+              src={motion.url}
+              poster={imageUrl}
+              muted
+              playsInline
+              preload="none"
+              aria-hidden
+              onError={handleError}
+            />
+          </div>
         ) : null}
       </div>
       <span id={labelId} className="sr-only">
