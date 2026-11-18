@@ -386,11 +386,16 @@
 }
 
 .murals-motion--frame .murals-motion__base .mural-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
   box-shadow: none;
 }
 
 .murals-motion--frame .murals-motion__base .mural-frame__inner {
-  /* Stage already locks 3:2 from the still — fill it, don't re-aspect. */
+  /* Fill the stage's 3:2 box — do not collapse under next/image fill. */
+  position: absolute;
+  inset: 0;
   aspect-ratio: auto;
   width: 100%;
   height: 100%;
@@ -955,6 +960,13 @@
 
 .murals-room__hang {
   width: min(100%, 56rem);
+  /*
+   * Stretch to .murals-room__work's definite height. height:100% alone does not
+   * resolve under the work's align-items:center, which left the absolute media
+   * slot at 0×0 after #11/#12.
+   */
+  align-self: stretch;
+  height: auto;
   max-height: 100%;
   min-height: 0;
   gap: 0.65rem;
@@ -963,6 +975,7 @@
 }
 
 .murals-room__hang .murals-hang__body {
+  flex: 1 1 auto;
   min-height: 0;
   max-height: 100%;
   gap: 0.45rem;
@@ -971,13 +984,18 @@
 }
 
 .murals-room__hang .murals-hang__shadow {
+  /* Remaining column after label / loop toggle — real px height, not 0. */
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
   position: relative;
 }
 
-/* Fit 3:2 media inside the remaining flex space without eating the nav row. */
+/*
+ * Fit a 3:2 frame inside the shadow's real box (letterboxed with margin:auto).
+ * Do not rely on the still's aspect alone: MotionMedia strips frame aspect so
+ * the stage can share one box with the video overlay.
+ */
 .murals-room__hang .murals-hang__shadow > .murals-motion {
   position: absolute;
   inset: 0;
@@ -992,7 +1010,7 @@
 .murals-room__hang .murals-motion__stage {
   width: 100%;
   height: 100%;
-  /* Parent .murals-motion already locks 3:2 in the room fit box. */
+  /* Motion box already locks 3:2 — fill it. */
   aspect-ratio: auto;
   max-height: 100%;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
@@ -1006,6 +1024,7 @@
 }
 
 .murals-room__hang .murals-motion .mural-frame {
+  position: relative;
   width: 100%;
   height: 100%;
   box-shadow: none;
