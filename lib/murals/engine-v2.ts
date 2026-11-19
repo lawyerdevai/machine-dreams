@@ -162,8 +162,8 @@ function parseBrief(
       ? parsed.motionBrief.trim().replace(/\s+/g, " ")
       : "";
   const motionBrief =
-    motionBriefRaw.length > 800
-      ? motionBriefRaw.slice(0, 800).trim()
+    motionBriefRaw.length > 1000
+      ? motionBriefRaw.slice(0, 1000).trim()
       : motionBriefRaw;
 
   if (
