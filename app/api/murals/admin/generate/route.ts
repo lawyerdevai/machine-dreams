@@ -128,6 +128,8 @@ export async function POST(request: Request) {
       }
     }
 
+    const animationReady = body?.animationReady === true;
+
     const result = await generateMural({
       kind,
       ...(seasonId ? { seasonId } : {}),
@@ -139,6 +141,7 @@ export async function POST(request: Request) {
       ...(focus ? { focus } : {}),
       ...(direction ? { direction } : {}),
       ...(engine ? { engine } : {}),
+      ...(animationReady ? { animationReady: true } : {}),
     });
     if (!result.ok) {
       return NextResponse.json(

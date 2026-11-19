@@ -128,3 +128,19 @@ export function bindingDirectionSection(
   }
   return `\n${lines.join("\n")}`;
 }
+
+/**
+ * Optional Animation-ready rules. Returns "" when off/falsy so Auto briefs stay
+ * byte-identical to the default path (see prove-murals-brief-unchanged).
+ */
+export function animationReadySection(animationReady?: boolean): string {
+  if (!animationReady) return "";
+  return `
+- ANIMATION-READY COMPOSITION (binding for this run): This still will be turned into a short looping clip by an image-to-video model, so design it for that. (1) Decide up front which one or two elements will move (for example sky, light, a beam, water, wind) and place them in a clear, uncluttered region separated from the figures. (2) Everything else holds still: figures are strong, clean silhouettes with crisp edges, not overlapping each other or the moving element, with no glow or haze washing over them. (3) Use a flat, poster-like rendering: bold simple shapes, a limited palette, minimal fine texture or tiny detail in the motion regions, and no dense overlapping crowds (a crowd works only as simple silhouettes). (4) Compose so the frame can return cleanly to its starting state: the moving element can pulse, switch on and off, or drift out and back. (5) No motion blur, speed lines or text baked into the image. Bake this into the imagePrompt.`;
+}
+
+/** Extra JSON field for Claude when Animation-ready is on; empty string when off. */
+export function animationReadyJsonField(animationReady?: boolean): string {
+  if (!animationReady) return "";
+  return `, "motionBrief": "2-4 short sentences covering what should move, what must stay frozen, and how a short clip should loop, followed by one final sentence written as a prompt for an image-to-video model"`;
+}

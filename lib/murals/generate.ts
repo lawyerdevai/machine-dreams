@@ -57,6 +57,7 @@ async function saveSuccess(
       directedScene?: string;
       directedCast?: string;
     };
+    motionBrief?: string;
   }
 ): Promise<MuralItem> {
   const id = randomUUID().replace(/-/g, "").slice(0, 16);
@@ -104,6 +105,7 @@ async function saveSuccess(
     ...(opts.sourceMeta?.directedCast
       ? { directedCast: opts.sourceMeta.directedCast }
       : {}),
+    ...(opts.motionBrief ? { motionBrief: opts.motionBrief } : {}),
   };
 
   const item: MuralItem = {
@@ -193,6 +195,8 @@ export async function generateMural(opts?: {
   direction?: MuralDirection;
   /** Force v2 or v3; omit for the default 50/50 coin flip. */
   engine?: "v2" | "v3";
+  /** Animation-ready composition + motionBrief; off/omitted = unchanged prompts. */
+  animationReady?: boolean;
 }): Promise<GenerateMuralResult> {
   const history = await loadHistory();
   const attempts: GenerateAttemptFailure[] = [];
@@ -219,6 +223,7 @@ export async function generateMural(opts?: {
       : undefined;
 
   const direction = normalizeDirection(opts?.direction);
+  const animationReady = Boolean(opts?.animationReady);
 
   const explicitDay =
     typeof opts?.day === "number" &&
@@ -303,6 +308,7 @@ export async function generateMural(opts?: {
       usedBeats: history.usedBeats,
       ...(normieCast ? { normieCast } : {}),
       ...(direction ? { direction } : {}),
+      ...(animationReady ? { animationReady: true } : {}),
     };
 
     const result =
@@ -333,6 +339,7 @@ export async function generateMural(opts?: {
         ...(seasonNumber !== undefined ? { seasonNumber } : {}),
         ...(day !== undefined ? { day } : {}),
         ...(sourceMeta ? { sourceMeta } : {}),
+        ...(result.motionBrief ? { motionBrief: result.motionBrief } : {}),
       });
       return { ok: true, item };
     } catch (error) {
