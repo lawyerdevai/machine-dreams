@@ -47,6 +47,7 @@ type UnifiedBriefV3 = {
   caption: string;
   imagePrompt: string;
   statement: string;
+  motionBrief?: string;
 };
 
 export type RunV3Input = {
@@ -64,6 +65,8 @@ export type RunV3Input = {
   normieCast?: NormieCastMember[];
   /** Directed mode; omitted or empty must not change the brief. */
   direction?: MuralDirection;
+  /** Animation-ready composition + motionBrief; off by default. */
+  animationReady?: boolean;
 };
 
 export type RunV3Result =
@@ -90,6 +93,7 @@ export type RunV3Result =
       composition: string | null;
       texture: string | null;
       statement: string;
+      motionBrief?: string;
       flagged: boolean;
       flags: string[];
       imageDataUrl: string;
@@ -116,7 +120,10 @@ function parseFigures(value: unknown): string[] {
     .slice(0, 12);
 }
 
-function parseBrief(text: string): UnifiedBriefV3 | null {
+function parseBrief(
+  text: string,
+  opts?: { requireMotionBrief?: boolean }
+): UnifiedBriefV3 | null {
   let parsed: {
     title?: unknown;
     style?: unknown;
@@ -128,6 +135,7 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
     caption?: unknown;
     imagePrompt?: unknown;
     statement?: unknown;
+    motionBrief?: unknown;
   };
   try {
     parsed = parseClaudeJson(text);
@@ -165,6 +173,15 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
       ? parsed.imagePrompt.trim().replace(/\s+/g, " ")
       : "";
 
+  const motionBriefRaw =
+    typeof parsed.motionBrief === "string"
+      ? parsed.motionBrief.trim().replace(/\s+/g, " ")
+      : "";
+  const motionBrief =
+    motionBriefRaw.length > 800
+      ? motionBriefRaw.slice(0, 800).trim()
+      : motionBriefRaw;
+
   if (
     !title ||
     !style ||
@@ -177,6 +194,9 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
     !tone ||
     !imagePrompt
   ) {
+    return null;
+  }
+  if (opts?.requireMotionBrief && !motionBrief) {
     return null;
   }
   if (!imagePrompt.includes(IMAGE_SUFFIX)) {
@@ -193,6 +213,7 @@ function parseBrief(text: string): UnifiedBriefV3 | null {
     caption,
     imagePrompt,
     statement,
+    ...(motionBrief ? { motionBrief } : {}),
   };
 }
 
@@ -209,6 +230,7 @@ async function requestBrief(input: {
   forceCombat: boolean;
   normieCast?: NormieCastMember[];
   direction?: MuralDirection;
+  animationReady?: boolean;
 }): Promise<UnifiedBriefV3 | null> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
@@ -229,13 +251,16 @@ async function requestBrief(input: {
           forceCombat: input.forceCombat,
           ...(input.normieCast ? { normieCast: input.normieCast } : {}),
           ...(input.direction ? { direction: input.direction } : {}),
+          ...(input.animationReady ? { animationReady: true } : {}),
         }),
       },
     ],
   });
   const block = message.content.find((part) => part.type === "text");
   const text = block && block.type === "text" ? block.text : "";
-  return parseBrief(text);
+  return parseBrief(text, {
+    requireMotionBrief: Boolean(input.animationReady),
+  });
 }
 
 async function toPngDataUrl(bytes: Buffer): Promise<string> {
@@ -366,6 +391,7 @@ export async function runV3(input: RunV3Input = {}): Promise<RunV3Result> {
   const sceneKit = pickSceneKit(usedBeats);
   const normieCast = input.normieCast;
   const direction = input.direction;
+  const animationReady = Boolean(input.animationReady);
 
   let brief: UnifiedBriefV3 | null;
   try {
@@ -382,6 +408,7 @@ export async function runV3(input: RunV3Input = {}): Promise<RunV3Result> {
       forceCombat,
       ...(normieCast ? { normieCast } : {}),
       ...(direction ? { direction } : {}),
+      ...(animationReady ? { animationReady: true } : {}),
     });
     if (!brief) {
       brief = await requestBrief({
@@ -397,6 +424,7 @@ export async function runV3(input: RunV3Input = {}): Promise<RunV3Result> {
         forceCombat,
         ...(normieCast ? { normieCast } : {}),
         ...(direction ? { direction } : {}),
+        ...(animationReady ? { animationReady: true } : {}),
       });
     }
   } catch (error) {
@@ -490,6 +518,7 @@ export async function runV3(input: RunV3Input = {}): Promise<RunV3Result> {
     composition: mix.composition,
     texture: mix.texture,
     statement: brief.statement,
+    ...(brief.motionBrief ? { motionBrief: brief.motionBrief } : {}),
     flagged,
     flags,
     imageDataUrl,

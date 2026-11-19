@@ -189,6 +189,7 @@ export default function MuralsAdminPage() {
   const [engineChoice, setEngineChoice] = useState<"random" | "v2" | "v3">(
     "random"
   );
+  const [animationReady, setAnimationReady] = useState(false);
   const [sourceKind, setSourceKind] = useState<MuralKind>("moment");
   const [sourceSeason, setSourceSeason] = useState("");
   const [sourceDay, setSourceDay] = useState("");
@@ -317,6 +318,7 @@ export default function MuralsAdminPage() {
     scene?: string;
     cast?: string;
     engine?: "random" | "v2" | "v3";
+    animationReady?: boolean;
   }): Promise<{
     ok: boolean;
     item?: MuralItem;
@@ -382,6 +384,7 @@ export default function MuralsAdminPage() {
       const result = await requestGenerate({
         kind: "moment",
         ...(engineChoice === "random" ? {} : { engine: engineChoice }),
+        ...(animationReady ? { animationReady: true } : {}),
       });
       if (!result.ok || !result.item) {
         setNotice(result.error ?? "Generate failed.");
@@ -510,6 +513,7 @@ export default function MuralsAdminPage() {
         ...(directed && scene ? { scene } : {}),
         ...(directed && cast ? { cast } : {}),
         ...(engineChoice === "random" ? {} : { engine: engineChoice }),
+        ...(animationReady ? { animationReady: true } : {}),
       });
       if (!result.ok || !result.item) {
         setNotice(result.error ?? "Generate failed.");
@@ -552,6 +556,7 @@ export default function MuralsAdminPage() {
           const result = await requestGenerate({
             kind: "moment",
             ...(engineChoice === "random" ? {} : { engine: engineChoice }),
+            ...(animationReady ? { animationReady: true } : {}),
           });
           if (!result.ok || !result.item) {
             failed += 1;
@@ -935,6 +940,16 @@ export default function MuralsAdminPage() {
             <option value="v2">v2</option>
             <option value="v3">v3</option>
           </select>
+        </label>
+        <label className="flex items-center gap-2 self-end pb-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
+          <input
+            type="checkbox"
+            checked={animationReady}
+            disabled={generateBusy}
+            onChange={(e) => setAnimationReady(e.target.checked)}
+            className="border border-[#0a0a0a]"
+          />
+          Animation-ready
         </label>
         {sourceKind === "season" ? (
           <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-[0.08em] text-[#666]">
@@ -1662,6 +1677,39 @@ export default function MuralsAdminPage() {
                       </p>
                     );
                   })()}
+                  {item.record.motionBrief ? (
+                    <div className="border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="uppercase tracking-[0.08em] text-[#666]">
+                          Motion brief
+                        </p>
+                        <button
+                          type="button"
+                          className="btn-minimal px-2 py-0.5 text-[0.625rem] normal-case tracking-normal"
+                          onClick={() => {
+                            const text = item.record.motionBrief;
+                            if (!text) return;
+                            void navigator.clipboard
+                              .writeText(text)
+                              .then(() =>
+                                flashConfirm(item.id, "Brief copied")
+                              )
+                              .catch(() =>
+                                setRowError((prev) => ({
+                                  ...prev,
+                                  [item.id]: "Could not copy brief.",
+                                }))
+                              );
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <p className="whitespace-pre-wrap normal-case tracking-normal">
+                        {item.record.motionBrief}
+                      </p>
+                    </div>
+                  ) : null}
                   {item.record.directedScene || item.record.directedCast ? (
                     <div className="border border-[#0a0a0a] bg-[#faf7f0] p-3 font-mono text-[0.6875rem] leading-relaxed text-[#333]">
                       <p className="mb-2 uppercase tracking-[0.08em] text-[#666]">

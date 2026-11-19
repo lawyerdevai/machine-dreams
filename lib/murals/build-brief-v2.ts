@@ -5,6 +5,8 @@
 import type { FigureKit } from "@/lib/arena-murals-figures";
 import type { SceneKit } from "@/lib/arena-murals-scenes";
 import {
+  animationReadyJsonField,
+  animationReadySection,
   bindingDirectionSection,
   normalizeDirection,
   type MuralDirection,
@@ -33,6 +35,8 @@ export type BuildBriefV2Input = {
   normieCast?: NormieCastMember[];
   /** Directed mode only; omitted or empty must not change the brief string. */
   direction?: MuralDirection;
+  /** Animation-ready; falsy must not change the brief string. */
+  animationReady?: boolean;
 };
 
 export function buildBriefV2(input: BuildBriefV2Input): string {
@@ -103,6 +107,8 @@ ${castRules}`
     input.direction,
     input.normieCast
   );
+  const animationBlock = animationReadySection(input.animationReady);
+  const motionBriefJson = animationReadyJsonField(input.animationReady);
 
   return `You are making one artwork that records a season of a world called the Arena, where AI-agent Normies of five factions (Human, Cat, Alien, Agent, Zombie) live, fight, trade, vote, and die. Below is the record of the season.
 
@@ -120,7 +126,7 @@ ${figureSpecificityRule}
 ${figureKitRule}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together. If two hybrid styles don't combine naturally, let the stronger one dominate.
-${styleMarksRule}${directionBlock}
+${styleMarksRule}${directionBlock}${animationBlock}
 - Do not resemble these looks already used: ${used}.
 - The image IS the artwork: flat, straight-on, filling the entire frame edge to edge. It is not a photograph of an object. No cloth hanging from a wall, no frame, no wall, no room, no surface the art sits on, no scenery around it. No paper edges, deckled edges, borders, margins, or visible paper or canvas texture beyond the artwork itself; the picture runs to the very edge of the frame.
 - ABSOLUTELY NO TEXT: no letters, words, numerals, signage, captions, or inscriptions.
@@ -129,7 +135,7 @@ ${styleMarksRule}${directionBlock}
 - Don't mention that it is AI-made.
 
 Respond with JSON only:
-{"title": "3-6 words", "style": "the final look in one phrase", "medium": "the medium in one phrase", "tone": "combat" | "quiet" | "other", "moment": "one sentence naming the moment and why it stands for the season", "scene": "one phrase: the beat and cast", "figure": "one sentence on the main figure's specific look", "caption": "one or two plain sentences under 220 characters: what happened this season and what the picture shows, using only facts from the season record; no invented events, names, or places", "imagePrompt": "detailed prompt for an image model; end it with: '${IMAGE_SUFFIX}'", "statement": "2-3 sentences on what this records and why it takes this form"}
+{"title": "3-6 words", "style": "the final look in one phrase", "medium": "the medium in one phrase", "tone": "combat" | "quiet" | "other", "moment": "one sentence naming the moment and why it stands for the season", "scene": "one phrase: the beat and cast", "figure": "one sentence on the main figure's specific look", "caption": "one or two plain sentences under 220 characters: what happened this season and what the picture shows, using only facts from the season record; no invented events, names, or places", "imagePrompt": "detailed prompt for an image model; end it with: '${IMAGE_SUFFIX}'", "statement": "2-3 sentences on what this records and why it takes this form"${motionBriefJson}}
 
 SEASON DATA:
 ${formatSeasonRecord(input.season)}`;

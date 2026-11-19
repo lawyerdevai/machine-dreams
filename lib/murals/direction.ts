@@ -128,3 +128,19 @@ export function bindingDirectionSection(
   }
   return `\n${lines.join("\n")}`;
 }
+
+/**
+ * Optional Animation-ready rules. Returns "" when off/falsy so Auto briefs stay
+ * byte-identical to the default path (see prove-murals-brief-unchanged).
+ */
+export function animationReadySection(animationReady?: boolean): string {
+  if (!animationReady) return "";
+  return `
+- ANIMATION-READY COMPOSITION (binding for this run): Prefer bold simple shapes and clear separation between figures and the background. Leave large uncluttered regions where motion can happen (sky, light, water, open ground). Avoid dense overlapping crowds and tiny fiddly detail in those motion regions. Bake this into the imagePrompt.`;
+}
+
+/** Extra JSON field for Claude when Animation-ready is on; empty string when off. */
+export function animationReadyJsonField(animationReady?: boolean): string {
+  if (!animationReady) return "";
+  return `, "motionBrief": "2-4 short sentences: what should move, what must stay frozen, and how a short looping clip should move"`;
+}

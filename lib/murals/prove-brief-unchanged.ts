@@ -249,6 +249,25 @@ async function main() {
   assertEqual("v3 omit === undefined direction", branchV3Omit, branchV3Undefined);
   assertEqual("v2 omit === empty direction", branchV2Omit, branchV2Empty);
 
+  const branchV3AnimOff = buildBriefV3({ ...v3Input, animationReady: false });
+  const branchV2AnimOff = buildBriefV2({ ...v2Input, animationReady: false });
+  assertEqual("v3 omit === animationReady false", branchV3Omit, branchV3AnimOff);
+  assertEqual("v2 omit === animationReady false", branchV2Omit, branchV2AnimOff);
+  const branchV3AnimOn = buildBriefV3({ ...v3Input, animationReady: true });
+  const branchV2AnimOn = buildBriefV2({ ...v2Input, animationReady: true });
+  if (branchV3AnimOn === branchV3Omit) {
+    console.error("FAIL v3 animationReady true should change the brief");
+    process.exitCode = 1;
+  } else {
+    console.log("OK   v3 animationReady true differs from default");
+  }
+  if (branchV2AnimOn === branchV2Omit) {
+    console.error("FAIL v2 animationReady true should change the brief");
+    process.exitCode = 1;
+  } else {
+    console.log("OK   v2 animationReady true differs from default");
+  }
+
   mkdirSync(FIXTURE_DIR, { recursive: true });
   const v3Path = join(FIXTURE_DIR, "brief-v3-main-baseline.txt");
   const v2Path = join(FIXTURE_DIR, "brief-v2-main-baseline.txt");

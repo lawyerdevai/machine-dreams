@@ -5,6 +5,8 @@
 import type { FactionKitsV3 } from "@/lib/arena-murals-figures-v3";
 import type { SceneKit } from "@/lib/arena-murals-scenes-v3";
 import {
+  animationReadyJsonField,
+  animationReadySection,
   bindingDirectionSection,
   normalizeDirection,
   type MuralDirection,
@@ -33,6 +35,8 @@ export type BuildBriefV3Input = {
   normieCast?: NormieCastMember[];
   /** Directed mode only; omitted or empty must not change the brief string. */
   direction?: MuralDirection;
+  /** Animation-ready; falsy must not change the brief string. */
+  animationReady?: boolean;
 };
 
 function sceneKitLabelWithoutCamera(sceneKit: SceneKit) {
@@ -107,6 +111,9 @@ ${castRules}`
     input.direction,
     input.normieCast
   );
+  // animationReadySection / animationReadyJsonField return "" when off.
+  const animationBlock = animationReadySection(input.animationReady);
+  const motionBriefJson = animationReadyJsonField(input.animationReady);
 
   return `You are making one artwork that records a season of a world called the Arena, where AI-agent Normies of five factions (Human, Cat, Alien, Agent, Zombie) live, fight, trade, vote, and die. Below is the record of the season.
 
@@ -124,7 +131,7 @@ ${factionKitsRule}
 ${input.factionKits.label}
 - Do not reuse or resemble these figure looks: ${usedFigures}.
 - Use the STARTING DIRECTION for the visual style: ${input.startingDirection}. Commit to it fully. Hybrids should feel like one coherent image, not two styles pasted together. If two hybrid styles don't combine naturally, let the stronger one dominate.
-${styleMarksRule}${directionBlock}
+${styleMarksRule}${directionBlock}${animationBlock}
 - Whatever the style, it must still read clearly as a scene with figures doing something. Style serves the moment.
 - Craft-based styles (tapestry, mosaic, stained glass, embroidery, quilt, tile) are a way of drawing, not an object. Render them as the flat image itself filling the frame, never as a physical item hanging, lying, or mounted anywhere.
 - Combined styles must merge into one coherent image, not sit side by side. If two styles do not combine naturally, let the stronger one dominate.
@@ -137,7 +144,7 @@ ${styleMarksRule}${directionBlock}
 - Don't mention that it is AI-made.
 
 Respond with JSON only:
-{"title": "3-6 words", "style": "the final look in one phrase", "medium": "the medium in one phrase", "tone": "combat" | "quiet" | "other", "moment": "one sentence naming the moment and why it stands for the season", "scene": "one phrase: the beat and cast", "figures": ["one short phrase per main figure: faction, scale, form, color"], "caption": "one or two plain sentences under 220 characters: what happened this season and what the picture shows, using only facts from the season record; no invented events, names, or places", "imagePrompt": "detailed prompt for an image model; end it with: '${IMAGE_SUFFIX}'", "statement": "2-3 sentences on what this records and why it takes this form"}
+{"title": "3-6 words", "style": "the final look in one phrase", "medium": "the medium in one phrase", "tone": "combat" | "quiet" | "other", "moment": "one sentence naming the moment and why it stands for the season", "scene": "one phrase: the beat and cast", "figures": ["one short phrase per main figure: faction, scale, form, color"], "caption": "one or two plain sentences under 220 characters: what happened this season and what the picture shows, using only facts from the season record; no invented events, names, or places", "imagePrompt": "detailed prompt for an image model; end it with: '${IMAGE_SUFFIX}'", "statement": "2-3 sentences on what this records and why it takes this form"${motionBriefJson}}
 
 SEASON DATA:
 ${formatSeasonRecord(input.season)}`;

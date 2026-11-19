@@ -75,6 +75,12 @@ export type MuralGeneratorRecord = {
    * this subset; omit on records without motion.
    */
   motion?: MuralMotion;
+  /**
+   * Short text brief for a later motion pass (what moves, what stays frozen,
+   * how it loops). Set when generated with Animation-ready; omit otherwise.
+   * Admin/internal — not the same as `motion` (uploaded mp4).
+   */
+  motionBrief?: string;
 };
 
 export type MuralItem = {
