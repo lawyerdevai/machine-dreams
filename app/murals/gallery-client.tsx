@@ -43,7 +43,8 @@ function readStoredView(tab: GalleryTab): ViewMode {
   } catch {
     /* ignore */
   }
-  return "timeline";
+  // First visit (no saved choice): Moments open in grid; Seasons stay on timeline.
+  return tab === "moments" ? "grid" : "timeline";
 }
 
 function writeStoredView(tab: GalleryTab, mode: ViewMode) {
@@ -456,7 +457,9 @@ function KindGallery({
   items: PublicMural[];
   tabsSlot?: ReactNode;
 }) {
-  const [view, setView] = useState<ViewMode>("timeline");
+  const [view, setView] = useState<ViewMode>(
+    tab === "moments" ? "grid" : "timeline"
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [gridPlayingId, setGridPlayingId] = useState<string | null>(null);
   /** At most one grid tile hover-previews at a time (pins are separate). */
